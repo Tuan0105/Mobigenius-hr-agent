@@ -6,26 +6,29 @@ import { Sidebar } from "@/components/sidebar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { TableBody, TableCell, Table as TableComponent, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { toast } from "@/hooks/use-toast"
-import { POSITION_NAMES } from "@/lib/config-store"
+import { POSITION_NAMES, useConfigData } from "@/lib/config-store"
 import { useHRData } from "@/lib/data-store"
 import type { Candidate } from "@/lib/types"
 import { closestCenter, DndContext, type DragEndEvent, DragOverlay, type DragStartEvent, PointerSensor, useDroppable, useSensor, useSensors } from "@dnd-kit/core"
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { Cloud, Download, Loader2, Search, Settings } from "lucide-react"
+import { Check, Cloud, Download, Eye, Grid3X3, Loader2, Mail, MoreHorizontal, Plus, Search, Settings, Table } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useCallback, useState } from "react"
 
 const stages = [
   { id: "cv-new", title: "CV Mới" },
-  { id: "screening", title: "Đang Sàng Lọc" },
   { id: "knowledge-test", title: "VÒNG THI KIẾN THỨC, KỸ NĂNG" },
   { id: "interview-1", title: "THAM DỰ PHỎNG VẤN VÒNG 1" },
   { id: "interview-2", title: "THAM DỰ PHỎNG VẤN VÒNG 2" },
-  { id: "offer", title: "Chờ Quyết Định" },
+  { id: "offer", title: "NHÂN SỰ CHÍNH THỨC" },
   { id: "hired", title: "Đã Tuyển" },
   { id: "rejected", title: "Từ chối" },
 ]
@@ -56,8 +59,6 @@ function SortableCandidateCard({ candidate, onClick }: SortableCandidateCardProp
     switch (status) {
       case "suitable":
         return "bg-success text-success-foreground"
-      case "pending":
-        return "bg-warning text-warning-foreground"
       case "unsuitable":
         return "bg-destructive text-destructive-foreground"
       default:
@@ -69,14 +70,64 @@ function SortableCandidateCard({ candidate, onClick }: SortableCandidateCardProp
     switch (status) {
       case "suitable":
         return "Phù hợp"
-      case "pending":
-        return "Chờ xem xét"
       case "unsuitable":
         return "Không phù hợp"
       default:
         return "Chưa đánh giá"
     }
   }
+
+  // Stage badge styles for table view (available in HRAgentPage scope)
+  const getStageBadgeClassTable = (stage: string) => {
+    switch (stage) {
+      case "cv-new":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+      case "screening":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+      case "knowledge-test":
+        return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+      case "interview-1":
+        return "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300"
+      case "interview-2":
+        return "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300"
+      case "offer":
+        return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
+      case "hired":
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+      case "rejected":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+      default:
+        return "bg-muted text-foreground"
+    }
+  }
+
+  // Stage badge styles for table view
+  const getStageBadgeClass = (stage: string) => {
+    switch (stage) {
+      case "cv-new":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+      case "screening":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+      case "knowledge-test":
+        return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+      case "interview-1":
+        return "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300"
+      case "interview-2":
+        return "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300"
+      case "offer":
+        return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
+      case "hired":
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+      case "rejected":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+      default:
+        return "bg-muted text-foreground"
+    }
+  }
+
+  // duplicate removed
+
+  
 
   return (
     <div
@@ -213,8 +264,6 @@ function CandidateCard({ candidate, onClick }: { candidate: Candidate; onClick: 
     switch (status) {
       case "suitable":
         return "bg-success text-success-foreground"
-      case "pending":
-        return "bg-warning text-warning-foreground"
       case "unsuitable":
         return "bg-destructive text-destructive-foreground"
       default:
@@ -226,8 +275,6 @@ function CandidateCard({ candidate, onClick }: { candidate: Candidate; onClick: 
     switch (status) {
       case "suitable":
         return "Phù hợp"
-      case "pending":
-        return "Chờ xem xét"
       case "unsuitable":
         return "Không phù hợp"
       default:
@@ -302,7 +349,12 @@ function CandidateCard({ candidate, onClick }: { candidate: Candidate; onClick: 
 }
 
 export default function HRAgentPage() {
+  // AI result is derived from score (>= 50 suitable, else unsuitable)
+  const getAIStatusFromScore = (score: number): "suitable" | "unsuitable" => {
+    return score >= 50 ? "suitable" : "unsuitable"
+  }
   const router = useRouter()
+  const { getTemplateByType } = useConfigData()
   const {
     candidates,
     allCandidates,
@@ -325,6 +377,72 @@ export default function HRAgentPage() {
   const [emailCandidate, setEmailCandidate] = useState<Candidate | null>(null)
   const [emailType, setEmailType] = useState<"interview" | "offer" | "reject">("interview")
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [emailMenuOpenId, setEmailMenuOpenId] = useState<number | null>(null)
+  
+  // Function to handle email menu click with auto-scroll
+  const handleEmailMenuClick = useCallback((candidateId: number) => {
+    setEmailMenuOpenId(emailMenuOpenId === candidateId ? null : candidateId)
+    
+    // Auto-scroll to ensure menu is visible
+    setTimeout(() => {
+      const menuElement = document.getElementById(`email-inline-menu-${candidateId}`)
+      if (menuElement) {
+        menuElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'nearest',
+          inline: 'nearest'
+        })
+      }
+    }, 100)
+  }, [emailMenuOpenId])
+  const [bulkMenuOpen, setBulkMenuOpen] = useState(false)
+  const [bulkEmailDialogOpen, setBulkEmailDialogOpen] = useState(false)
+  const [bulkEmailComposeOpen, setBulkEmailComposeOpen] = useState(false)
+  const [bulkEmailTemplate, setBulkEmailTemplate] = useState<string>("")
+  const [bulkEmailSubject, setBulkEmailSubject] = useState<string>("")
+  const [bulkEmailContent, setBulkEmailContent] = useState<string>("")
+  // Track which stage the email is intended for (when stage changes right before opening modal)
+  const [emailStageOverride, setEmailStageOverride] = useState<string | null>(null)
+  
+  // Helper function to get correct template type based on stage
+  const getTemplateTypeFromStage = (stage: string, emailType: "interview" | "offer" | "reject") => {
+    if (emailType === "reject") return "reject"
+    if (emailType === "offer") {
+      // For offer emails, determine based on stage
+      switch (stage) {
+        case "offer":
+          return "offer-health-check" // Health check email for offer stage
+        case "hired":
+          return "offer-congratulations" // Congratulations email for hired stage
+        default:
+          return "offer-congratulations" // Default fallback
+      }
+    }
+    
+    // For interview emails, determine based on stage
+    switch (stage) {
+      case "knowledge-test":
+        return "interview-knowledge-test"
+      case "interview-1":
+        return "interview-round-1"
+      case "interview-2":
+        return "interview-round-2"
+      case "cv-new":
+        return "interview-knowledge-test" // When moving from CV to knowledge test
+      default:
+        return "interview-round-1" // Default fallback
+    }
+  }
+  
+  // View mode state (default to table)
+  const [viewMode, setViewMode] = useState<"kanban" | "table">("table")
+  
+  // Table view states
+  const [selectedCandidates, setSelectedCandidates] = useState<Set<number>>(new Set())
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
+  const [sortField, setSortField] = useState<keyof Candidate>("updatedAt")
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
 
   // Function to download all candidates as Excel
   const handleDownloadAll = () => {
@@ -423,7 +541,7 @@ export default function HRAgentPage() {
     // Show toast notification
     const candidate = candidates.find(c => c.id === candidateId)
     if (candidate) {
-      const statusText = status === "suitable" ? "Phù hợp" : status === "unsuitable" ? "Không phù hợp" : "Chờ xem xét"
+      const statusText = status === "suitable" ? "Phù hợp" : "Không phù hợp"
       toast({
         title: "Cập nhật trạng thái thành công",
         description: `Đã đánh giá ${candidate.hoVaTenDem} ${candidate.ten} là ${statusText}`,
@@ -522,16 +640,7 @@ export default function HRAgentPage() {
 
       console.log("Updating candidate stage from", oldStage, "to", targetStage) // Debug log
 
-      // Block moving pending status to non-allowed stages
-      const isPending = candidate.status === 'pending'
-      const allowedStagesForPending: Candidate["stage"][] = ["cv-new", "screening"]
-      if (isPending && !allowedStagesForPending.includes(targetStage)) {
-        toast({
-          title: "Không thể chuyển giai đoạn",
-          description: "CV 'Chờ xem xét' chỉ có thể ở 'CV Mới' hoặc 'Đang Sàng Lọc'",
-        })
-        return
-      }
+      // Remove pending status constraints since we no longer use pending status
 
       // Block moving from rejected to any stage except screening
       if (oldStage === "rejected" && targetStage !== "screening") {
@@ -551,9 +660,9 @@ export default function HRAgentPage() {
         return
       }
 
-      // If moving from rejected back to screening, reset status to pending so actions reappear
-      if (oldStage === "rejected" && targetStage === "screening" && candidate.status !== "pending") {
-        updateCandidateStatus(candidateId, "pending")
+      // If moving from rejected back to screening, reset status to default
+      if (oldStage === "rejected" && targetStage === "screening") {
+        updateCandidateStatus(candidateId, "suitable")
       }
 
       // Update candidate stage (valid)
@@ -613,8 +722,7 @@ export default function HRAgentPage() {
       } else if (oldStage === "cv-new" && targetStage === "screening") {
         // VD5: Kéo từ "CV Mới" -> "Đang Sàng Lọc"
         console.log("Triggering AI screening") // Debug log
-        // Khi vào sàng lọc, luôn đặt trạng thái về 'pending' để HR có thể đánh giá
-        updateCandidateStatus(candidateId, "pending")
+        // Khi vào sàng lọc, giữ nguyên trạng thái hiện tại
         toast({
           title: "Kích hoạt AI sàng lọc",
           description: `Đã chuyển ${candidate.hoVaTenDem} ${candidate.ten} sang ${newStageTitle}. Kích hoạt AI chạy sàng lọc tự động.`,
@@ -672,8 +780,9 @@ export default function HRAgentPage() {
         sentAt: new Date().toISOString(),
       })
 
-      // Mark email as sent for the candidate's current stage (already updated before opening modal)
-      updateCandidateEmailStatus(emailCandidate.id, true, undefined, emailCandidate.stage)
+      // Mark email as sent for the correct stage
+      const stageForEmail = (emailStageOverride as string) || emailCandidate.stage
+      updateCandidateEmailStatus(emailCandidate.id, true, undefined, stageForEmail)
 
       // Toast by type
       const message =
@@ -687,6 +796,33 @@ export default function HRAgentPage() {
         title: message,
         description: `Đã gửi email ${emailType === "interview" ? "mời phỏng vấn" : emailType === "offer" ? "mời làm việc" : "từ chối"} cho ${emailCandidate.hoVaTenDem} ${emailCandidate.ten}`,
       })
+
+      // After email is successfully sent, update stage/status accordingly
+      if (emailType === "reject") {
+        updateCandidateStage(emailCandidate.id, "rejected" as any)
+        updateCandidateStatus(emailCandidate.id, "unsuitable")
+      } else if (emailType === "offer") {
+        // Handle offer email stage transitions
+        if (emailCandidate.stage === "interview-2") {
+          // From interview-2, move to offer stage (not hired yet)
+          updateCandidateStage(emailCandidate.id, "offer" as any)
+        } else if (emailStageOverride === "hired") {
+          // From offer stage, move to hired
+          updateCandidateStage(emailCandidate.id, "hired" as any)
+        } else if (emailStageOverride === "offer") {
+          // Health check email - stay in offer stage, don't change stage
+          // No stage change needed
+        }
+      } else if (emailType === "interview" && emailStageOverride) {
+        updateCandidateStage(emailCandidate.id, emailStageOverride as any)
+      }
+
+      // Clear override after handling
+      setEmailStageOverride(null)
+      
+      // Close modal after successful send
+      setEmailModalOpen(false)
+      setEmailCandidate(null)
     }
   }
 
@@ -721,7 +857,375 @@ export default function HRAgentPage() {
     }
   }
 
+  // Table view handlers
+  const handleSelectCandidate = (candidateId: number, checked: boolean) => {
+    const newSelected = new Set(selectedCandidates)
+    if (checked) {
+      newSelected.add(candidateId)
+    } else {
+      newSelected.delete(candidateId)
+    }
+    setSelectedCandidates(newSelected)
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = new Set(candidates.map(c => c.id))
+      setSelectedCandidates(allIds)
+    } else {
+      setSelectedCandidates(new Set())
+    }
+  }
+
+  const handleSort = (field: keyof Candidate) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortDirection("asc")
+    }
+  }
+
+  const handleBulkAction = (action: string) => {
+    if (selectedCandidates.size === 0) return
+
+    switch (action) {
+      case "change-status":
+        // TODO: Implement bulk status change
+        toast({
+          title: "Thay đổi trạng thái hàng loạt",
+          description: `Đã chọn ${selectedCandidates.size} ứng viên để thay đổi trạng thái`,
+        })
+        break
+      case "send-email":
+        // TODO: Implement bulk email
+        toast({
+          title: "Gửi email hàng loạt",
+          description: `Đã chọn ${selectedCandidates.size} ứng viên để gửi email`,
+        })
+        break
+      case "delete":
+        // TODO: Implement bulk delete
+        toast({
+          title: "Xóa hàng loạt",
+          description: `Đã chọn ${selectedCandidates.size} ứng viên để xóa`,
+        })
+        break
+    }
+  }
+
+  const handleStageChange = (candidateId: number, newStage: string) => {
+    updateCandidateStage(candidateId, newStage as any)
+    const candidate = candidates.find(c => c.id === candidateId)
+    if (candidate) {
+      toast({
+        title: "Cập nhật giai đoạn",
+        description: `Đã chuyển ${candidate.hoVaTenDem} ${candidate.ten} sang giai đoạn mới`,
+      })
+    }
+  }
+
   const activeDragCandidate = activeId ? candidates.find((c: Candidate) => c.id.toString() === activeId) : null
+
+  // Table view data processing
+  const sortedCandidates = [...candidates].sort((a, b) => {
+    const aValue = a[sortField]
+    const bValue = b[sortField]
+    
+    if (aValue === undefined && bValue === undefined) return 0
+    if (aValue === undefined) return 1
+    if (bValue === undefined) return -1
+    
+    if (aValue < bValue) return sortDirection === "asc" ? -1 : 1
+    if (aValue > bValue) return sortDirection === "asc" ? 1 : -1
+    return 0
+  })
+
+  const totalPages = Math.ceil(sortedCandidates.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedCandidates = sortedCandidates.slice(startIndex, endIndex)
+
+  // Bulk action: enable only when selected and same stage
+  const selectedCandidatesList = candidates.filter((c) => selectedCandidates.has(c.id))
+  const hasUniformStage = selectedCandidatesList.length > 0 && (new Set(selectedCandidatesList.map((c) => c.stage))).size === 1
+
+  // Email template helpers
+  const getEmailTemplate = useCallback((type: "interview" | "offer" | "reject", targetStage?: string) => {
+    const stage = targetStage || selectedCandidatesList[0]?.stage
+    switch (type) {
+      case "interview":
+        if (stage === "knowledge-test") return "interview-knowledge-test"
+        if (stage === "interview-1") return "interview-round-1"
+        if (stage === "interview-2") return "interview-round-2"
+        return "interview-round-1" // Default to round 1
+      case "offer":
+        if (stage === "interview-2") return "offer-congratulations" // After interview-2, send congratulations
+        if (stage === "hired") return "offer-health-check"
+        return "offer-congratulations"
+      case "reject":
+        return "reject"
+      default:
+        return "interview-round-1"
+    }
+  }, [])
+
+  const getEmailSubject = useCallback((type: "interview" | "offer" | "reject", targetStage?: string) => {
+    const templateType = getEmailTemplate(type, targetStage)
+    const template = getTemplateByType(templateType as any)
+    if (!template) return "Email từ Mobifone"
+    
+    // Replace placeholders with actual values
+    const stage = targetStage || selectedCandidatesList[0]?.stage
+    const position = selectedCandidatesList[0]?.viTri || "vị trí ứng tuyển"
+    
+    return template.subject
+      .replace(/{{ViTriUngTuyen}}/g, position)
+      .replace(/{{TenUngVien}}/g, "ứng viên")
+  }, [getEmailTemplate, getTemplateByType, selectedCandidatesList])
+
+  const getEmailContent = useCallback((type: "interview" | "offer" | "reject", targetStage?: string) => {
+    const templateType = getEmailTemplate(type, targetStage)
+    const template = getTemplateByType(templateType as any)
+    if (!template) return "Nội dung email từ Mobifone"
+    
+    // Replace placeholders with actual values
+    const stage = targetStage || selectedCandidatesList[0]?.stage
+    const position = selectedCandidatesList[0]?.viTri || "vị trí ứng tuyển"
+    
+    return template.content
+      .replace(/{{ViTriUngTuyen}}/g, position)
+      .replace(/{{TenUngVien}}/g, "ứng viên")
+      .replace(/{{ThoiGianPhongVan}}/g, "sẽ được thông báo sau")
+      .replace(/{{NgayXacNhan}}/g, "5 ngày")
+      .replace(/{{NgayBatDau}}/g, "sẽ được thông báo sau")
+  }, [getEmailTemplate, getTemplateByType, selectedCandidatesList])
+
+  // Bulk email helpers - open compose modal instead of sending immediately
+  const bulkSendEmail = useCallback((type: "interview" | "offer" | "reject", targetStage?: string) => {
+    if (!hasUniformStage) return
+    
+    // Set email type and template based on action
+    setEmailType(type)
+    const template = getEmailTemplate(type, targetStage)
+    const subject = getEmailSubject(type, targetStage)
+    const content = getEmailContent(type, targetStage)
+    
+    console.log('Bulk email setup:', { type, targetStage, template, subject, content })
+    
+    setBulkEmailTemplate(template)
+    setBulkEmailSubject(subject)
+    setBulkEmailContent(content)
+    
+    // Store the target stage for later use
+    setEmailStageOverride(targetStage || selectedCandidatesList[0]?.stage || null)
+    
+    // Open compose modal
+    setBulkEmailComposeOpen(true)
+    setBulkMenuOpen(false)
+  }, [hasUniformStage, getEmailTemplate, getEmailSubject, getEmailContent, selectedCandidatesList])
+
+  // Handle bulk email send
+  const handleBulkEmailSend = useCallback(() => {
+    if (!hasUniformStage) return
+    
+    selectedCandidatesList.forEach(c => {
+      addEmailActivity(c.id, emailType)
+      const stageForEmail = emailStageOverride || c.stage
+      updateCandidateEmailStatus(c.id, true, undefined, stageForEmail)
+      
+      if (emailType === "reject") {
+        updateCandidateStage(c.id, "rejected" as any)
+        updateCandidateStatus(c.id, "unsuitable")
+      } else if (emailType === "offer") {
+        // After interview-2, send congratulations and move to hired
+        if (c.stage === "interview-2") {
+          updateCandidateStage(c.id, "hired" as any)
+        } else if (emailStageOverride === "hired") {
+          updateCandidateStage(c.id, "hired" as any)
+        }
+      } else if (emailType === "interview" && emailStageOverride) {
+        updateCandidateStage(c.id, emailStageOverride as any)
+      }
+    })
+    
+    toast({ 
+      title: "Đã gửi email hàng loạt", 
+      description: `Đã gửi ${emailType === 'interview' ? 'mời phỏng vấn' : emailType === 'offer' ? 'mời làm việc' : 'từ chối'} cho ${selectedCandidatesList.length} ứng viên` 
+    })
+    
+    setBulkEmailComposeOpen(false)
+    setEmailStageOverride(null)
+  }, [hasUniformStage, emailType, emailStageOverride, selectedCandidatesList, addEmailActivity, updateCandidateEmailStatus, updateCandidateStage, updateCandidateStatus, toast])
+
+  // Filter handlers to prevent infinite loops
+  const handlePositionFilter = useCallback((value: string) => {
+    setFilters(prev => ({ ...prev, position: value }))
+  }, [])
+
+  const handleStageFilter = useCallback((value: string) => {
+    setFilters(prev => ({ ...prev, stage: value }))
+  }, [])
+
+  const handleStatusFilter = useCallback((value: string) => {
+    setFilters(prev => ({ ...prev, status: value }))
+  }, [])
+
+  // Handler functions to prevent infinite loops
+  const handleViewModeKanban = useCallback(() => {
+    setViewMode("kanban")
+  }, [])
+
+  const handleViewModeTable = useCallback(() => {
+    setViewMode("table")
+  }, [])
+
+  const handleBulkMenuToggle = useCallback(() => {
+    setBulkMenuOpen(!bulkMenuOpen)
+  }, [bulkMenuOpen])
+
+  const handleBulkEmailKnowledgeTest = useCallback(() => {
+    setBulkMenuOpen(false)
+    bulkSendEmail("interview", "knowledge-test")
+  }, [bulkSendEmail])
+
+  const handleBulkEmailInterview1 = useCallback(() => {
+    setBulkMenuOpen(false)
+    bulkSendEmail("interview", "interview-1")
+  }, [bulkSendEmail])
+
+  const handleBulkEmailInterview2 = useCallback(() => {
+    setBulkMenuOpen(false)
+    bulkSendEmail("interview", "interview-2")
+  }, [bulkSendEmail])
+
+  const handleBulkEmailReject = useCallback(() => {
+    setBulkMenuOpen(false)
+    bulkSendEmail("reject")
+  }, [bulkSendEmail])
+
+  const handleBulkEmailOffer = useCallback(() => {
+    setBulkMenuOpen(false)
+    bulkSendEmail("offer")
+  }, [bulkSendEmail])
+
+  const handleBulkEmailHealthCheck = useCallback(() => {
+    setBulkMenuOpen(false)
+    bulkSendEmail("offer", "hired")
+  }, [bulkSendEmail])
+
+  const handleBulkEmailRejectResend = useCallback(() => {
+    setBulkMenuOpen(false)
+    bulkSendEmail("reject")
+  }, [bulkSendEmail])
+
+  const handleConfigNavigation = useCallback(() => {
+    router.push("/config")
+  }, [router])
+
+  const handleSortHoVaTenDem = useCallback(() => {
+    handleSort("hoVaTenDem")
+  }, [handleSort])
+
+  const handleSortUpdatedAt = useCallback(() => {
+    handleSort("updatedAt")
+  }, [handleSort])
+
+  const handlePaginationPrevious = useCallback(() => {
+    setCurrentPage(Math.max(1, currentPage - 1))
+  }, [currentPage])
+
+  const handlePaginationNext = useCallback(() => {
+    setCurrentPage(Math.min(totalPages, currentPage + 1))
+  }, [currentPage, totalPages])
+
+  const handlePaginationPage = useCallback((page: number) => {
+    setCurrentPage(page)
+  }, [])
+
+  // Helper functions for table view
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "suitable":
+        return "bg-success text-success-foreground"
+      case "unsuitable":
+        return "bg-destructive text-destructive-foreground"
+      default:
+        return "bg-muted text-muted-foreground"
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "suitable":
+        return "Phù hợp"
+      case "unsuitable":
+        return "Không phù hợp"
+      default:
+        return "Chưa đánh giá"
+    }
+  }
+
+  // Email helpers for labeling menu items with sent status per stage
+  const getEmailMenuLabel = (candidateId: number, stage: string, baseLabel: string) => {
+    const status = getEmailStatusForStage(candidateId, stage)
+    return status.sent ? `Gửi lại ${baseLabel}` : `Gửi ${baseLabel}`
+  }
+
+  const EmailMenuItem = ({
+    candidate,
+    targetStage,
+    baseLabel,
+    type,
+  }: {
+    candidate: Candidate
+    targetStage: string
+    baseLabel: string
+    type: "interview" | "offer" | "reject"
+  }) => {
+    const status = getEmailStatusForStage(candidate.id, targetStage)
+    const label = status.sent ? `Gửi lại ${baseLabel}` : `Gửi ${baseLabel}`
+    const tooltip = status.lastSent ? `Đã gửi lúc ${new Date(status.lastSent).toLocaleString('vi-VN')}` : undefined
+    
+    const handleEmailAction = useCallback(() => {
+      setEmailCandidate(candidate)
+      setEmailType(type)
+      // Only remember intended target stage; do NOT change stage yet
+      if (type === "reject") {
+        setEmailStageOverride("rejected")
+      } else if (type === "offer") {
+        // For offer emails, use targetStage to determine the correct stage
+        setEmailStageOverride(targetStage)
+      } else if (type === "interview") {
+        setEmailStageOverride(targetStage)
+      }
+      setEmailModalOpen(true)
+      // Close inline menu immediately after choosing an action
+      setEmailMenuOpenId(null)
+    }, [candidate, type, targetStage])
+    
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={handleEmailAction}
+              className="w-full flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground text-foreground"
+            >
+              {status.sent && <Check className="!h-2 !w-2 text-green-600" style={{ width: '18px', height: '18px', minWidth: '18px', minHeight: '18px' }} />}
+              <span>{label}</span>
+            </button>
+          </TooltipTrigger>
+          {tooltip && (
+            <TooltipContent>
+              <span className="text-xs">{tooltip}</span>
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }
 
   // Debug log to check if component is rendering
   console.log("HRAgentPage rendering with candidates:", candidates.length)
@@ -740,15 +1244,102 @@ export default function HRAgentPage() {
                 <p className="text-sm text-muted-foreground mt-1">Quản lý và theo dõi quy trình tuyển dụng thông minh</p>
               </div>
               <div className="flex items-center gap-3">
+                {/* View Toggle Buttons */}
+                <div className="flex items-center border rounded-lg p-1">
+                  <Button
+                    variant={viewMode === "kanban" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={handleViewModeKanban}
+                    className="gap-2"
+                  >
+                    <Grid3X3 className="h-4 w-4" />
+                    Kanban
+                  </Button>
+                  <Button
+                    variant={viewMode === "table" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={handleViewModeTable}
+                    className="gap-2"
+                  >
+                    <Table className="h-4 w-4" />
+                    Table
+                  </Button>
+                </div>
+
+                {/* Primary Actions */}
                 <Button 
-                  variant="outline" 
-                  className="gap-2 bg-transparent hover:bg-accent" 
+                  className="gap-2 bg-primary hover:bg-primary/90" 
                   onClick={handleSyncCVs} 
                   disabled={isLoading}
                 >
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cloud className="h-4 w-4" />}
                   Đồng bộ CV từ Email
                 </Button>
+                
+                {viewMode === "table" && (
+                  <Button 
+                    variant="outline" 
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Thêm ứng viên
+                  </Button>
+                )}
+
+                {/* Bulk Actions (only in table view) */}
+                {viewMode === "table" && (
+                  <div className="relative">
+                    <Button 
+                      variant="outline" 
+                      disabled={!hasUniformStage}
+                      className="gap-2"
+                      onClick={handleBulkMenuToggle}
+                      aria-haspopup="menu"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                      Hành động hàng loạt ({selectedCandidates.size})
+                    </Button>
+                    {bulkMenuOpen && (
+                      <div className="absolute right-0 top-10 z-[9999] w-56 rounded-md border bg-popover text-popover-foreground shadow-md p-1" role="menu">
+                        {/* Context-aware options based on uniform stage */}
+                        {selectedCandidatesList[0]?.stage === "cv-new" && (
+                          <>
+                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailKnowledgeTest}>Mời thi kỹ năng</button>
+                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailInterview1}>Mời phỏng vấn vòng 1</button>
+                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm text-destructive" onClick={handleBulkEmailReject}>Gửi thư từ chối</button>
+                          </>
+                        )}
+                        {selectedCandidatesList[0]?.stage === "knowledge-test" && (
+                          <>
+                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailInterview1}>Mời phỏng vấn vòng 1</button>
+                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm text-destructive" onClick={handleBulkEmailReject}>Gửi thư từ chối</button>
+                          </>
+                        )}
+                        {selectedCandidatesList[0]?.stage === "interview-1" && (
+                          <>
+                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailInterview2}>Mời phỏng vấn vòng 2</button>
+                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm text-destructive" onClick={handleBulkEmailReject}>Gửi thư từ chối</button>
+                          </>
+                        )}
+                        {selectedCandidatesList[0]?.stage === "interview-2" && (
+                          <>
+                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailOffer}>Gửi thư chúc mừng trúng tuyển</button>
+                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm text-destructive" onClick={handleBulkEmailReject}>Gửi thư từ chối</button>
+                          </>
+                        )}
+                        {selectedCandidatesList[0]?.stage === "hired" && (
+                          <>
+                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailHealthCheck}>Gửi hướng dẫn khám sức khỏe</button>
+                          </>
+                        )}
+                        {selectedCandidatesList[0]?.stage === "rejected" && (
+                          <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailReject}>Gửi lại thư từ chối</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <Button 
                   variant="outline" 
                   className="gap-2 bg-transparent hover:bg-accent"
@@ -760,7 +1351,7 @@ export default function HRAgentPage() {
                 <Button 
                   variant="outline" 
                   size="icon" 
-                  onClick={() => router.push("/config")}
+                  onClick={handleConfigNavigation}
                   className="hover:bg-accent"
                 >
                   <Settings className="h-4 w-4" />
@@ -772,7 +1363,7 @@ export default function HRAgentPage() {
           {/* Filter Bar */}
           <div className="border-b border-border bg-card px-6 py-4">
             <div className="flex items-center gap-4">
-              <Select value={filters.position} onValueChange={(value) => setFilters({ ...filters, position: value })}>
+              <Select value={filters.position} onValueChange={handlePositionFilter}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Vị trí tuyển dụng" />
                 </SelectTrigger>
@@ -784,31 +1375,28 @@ export default function HRAgentPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={filters.stage} onValueChange={(value) => setFilters({ ...filters, stage: value })}>
+              <Select value={filters.stage} onValueChange={handleStageFilter}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả</SelectItem>
                   <SelectItem value="cv-new">CV Mới</SelectItem>
-                  <SelectItem value="screening">Đang Sàng Lọc</SelectItem>
                   <SelectItem value="knowledge-test">Vòng Thi Kiến Thức, Kỹ Năng</SelectItem>
                   <SelectItem value="interview-1">Tham Dự Phỏng Vấn Vòng 1</SelectItem>
                   <SelectItem value="interview-2">Tham Dự Phỏng Vấn Vòng 2</SelectItem>
-                  <SelectItem value="offer">Chờ Quyết Định</SelectItem>
                   <SelectItem value="hired">Đã Tuyển</SelectItem>
                   <SelectItem value="rejected">Từ Chối</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}>
+              <Select value={filters.status} onValueChange={handleStatusFilter}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Kết quả sàng lọc" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả</SelectItem>
                   <SelectItem value="suitable">Phù hợp</SelectItem>
-                  <SelectItem value="pending">Chờ xem xét</SelectItem>
                   <SelectItem value="unsuitable">Không phù hợp</SelectItem>
                 </SelectContent>
               </Select>
@@ -828,54 +1416,269 @@ export default function HRAgentPage() {
             </div>
           </div>
 
-          {/* Kanban Board */}
-          <div className="flex-1 overflow-x-auto overflow-y-auto p-6">
-            <DndContext 
-              sensors={sensors}
-              collisionDetection={closestCenter} 
-              onDragStart={(event) => {
-                console.log("DndContext onDragStart triggered", event) // Debug log
-                handleDragStart(event)
-              }}
-              onDragEnd={(event) => {
-                console.log("DndContext onDragEnd triggered", event) // Debug log
-                handleDragEnd(event)
-              }}
-            >
-              <div className="flex gap-6 min-w-max">
-                {stagesWithCounts.map((stage) => {
-                  const stageCandidates = candidates
-                    .filter((candidate: Candidate) => candidate.stage === stage.id)
-                    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+          {/* Main Content Area */}
+          <div className="flex-1 overflow-hidden">
+            {viewMode === "kanban" ? (
+              /* Kanban Board */
+              <div className="h-full overflow-x-auto overflow-y-auto p-6">
+                <DndContext 
+                  sensors={sensors}
+                  collisionDetection={closestCenter} 
+                  onDragStart={(event) => {
+                    console.log("DndContext onDragStart triggered", event) // Debug log
+                    handleDragStart(event)
+                  }}
+                  onDragEnd={(event) => {
+                    console.log("DndContext onDragEnd triggered", event) // Debug log
+                    handleDragEnd(event)
+                  }}
+                >
+                  <div className="flex gap-6 min-w-max">
+                    {stagesWithCounts.map((stage) => {
+                      const stageCandidates = candidates
+                        .filter((candidate: Candidate) => candidate.stage === stage.id)
+                        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
 
-                  return (
-                    <DroppableStage key={stage.id} stage={stage} candidates={stageCandidates}>
-                      <SortableContext
-                        id={stage.id}
-                        items={stageCandidates.map((c) => c.id.toString())}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        {stageCandidates.map((candidate: Candidate) => (
-                          <SortableCandidateCard
-                            key={candidate.id}
-                            candidate={candidate}
-                            onClick={() => handleCandidateClick(candidate)}
-                          />
-                        ))}
-                      </SortableContext>
-                    </DroppableStage>
-                  )
-                })}
-              </div>
-
-              <DragOverlay>
-                {activeDragCandidate ? (
-                  <div className="opacity-90 transform rotate-2">
-                    <CandidateCard candidate={activeDragCandidate} onClick={() => {}} />
+                      return (
+                        <DroppableStage key={stage.id} stage={stage} candidates={stageCandidates}>
+                          <SortableContext
+                            id={stage.id}
+                            items={stageCandidates.map((c) => c.id.toString())}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {stageCandidates.map((candidate: Candidate) => (
+                              <SortableCandidateCard
+                                key={candidate.id}
+                                candidate={candidate}
+                                onClick={() => handleCandidateClick(candidate)}
+                              />
+                            ))}
+                          </SortableContext>
+                        </DroppableStage>
+                      )
+                    })}
                   </div>
-                ) : null}
-              </DragOverlay>
-            </DndContext>
+
+                  <DragOverlay>
+                    {activeDragCandidate ? (
+                      <div className="opacity-90 transform rotate-2">
+                        <CandidateCard candidate={activeDragCandidate} onClick={() => {}} />
+                      </div>
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
+              </div>
+            ) : (
+              /* Table View */
+              <div className="h-full flex flex-col">
+                <div className="flex-1 overflow-auto">
+                  <TableComponent>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={selectedCandidates.size === candidates.length && candidates.length > 0}
+                            onCheckedChange={handleSelectAll}
+                          />
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={handleSortHoVaTenDem}
+                        >
+                          Họ và tên
+                        </TableHead>
+                        <TableHead>Vị trí ứng tuyển</TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={handleSortUpdatedAt}
+                        >
+                          Ngày nộp
+                        </TableHead>
+                        <TableHead>Kết quả AI</TableHead>
+                        <TableHead>Trạng thái</TableHead>
+                        <TableHead className="w-32">Hành động</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedCandidates.map((candidate, index) => (
+                        <TableRow key={candidate.id} className="hover:bg-muted/50">
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedCandidates.has(candidate.id)}
+                              onCheckedChange={(checked) => handleSelectCandidate(candidate.id, checked as boolean)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium cursor-pointer hover:text-primary" onClick={() => handleCandidateClick(candidate)}>
+                              {candidate.hoVaTenDem} {candidate.ten}
+                            </div>
+                            <div className="text-sm text-muted-foreground">{candidate.email}</div>
+                          </TableCell>
+                          <TableCell>{candidate.viTri}</TableCell>
+                          <TableCell>
+                            {new Date(candidate.updatedAt).toLocaleDateString('vi-VN')}
+                          </TableCell>
+                          <TableCell>
+                            {(() => {
+                              const aiStatus = getAIStatusFromScore(candidate.score)
+                              return (
+                                <Badge className={`text-xs ${getStatusColor(aiStatus)}`}>
+                                  {getStatusText(aiStatus)}
+                                </Badge>
+                              )
+                            })()}
+                          </TableCell>
+                          <TableCell>
+                            {(() => {
+                              const stage = candidate.stage
+                              const cls = stage === "cv-new" ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                                : stage === "screening" ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                                : stage === "knowledge-test" ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                                : stage === "interview-1" ? "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300"
+                                : stage === "interview-2" ? "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300"
+                                : stage === "offer" ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
+                                : stage === "hired" ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                                : stage === "rejected" ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                                : "bg-muted text-foreground"
+                              return (
+                                <Badge className={`text-xs ${cls}`}>
+                                  {stages.find(s => s.id === candidate.stage)?.title || candidate.stage}
+                                </Badge>
+                              )
+                            })()}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCandidateClick(candidate)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <div className="relative">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEmailMenuClick(candidate.id)}
+                                  aria-haspopup="menu"
+                                  aria-controls={`email-inline-menu-${candidate.id}`}
+                                  className={emailMenuOpenId === candidate.id ? "bg-accent" : ""}
+                                >
+                                  <Mail className="h-4 w-4" />
+                                </Button>
+                                {emailMenuOpenId === candidate.id && (
+                                  <>
+                                    {/* Backdrop to ensure menu is not obscured */}
+                                    <div 
+                                      className="fixed inset-0 z-[9998]" 
+                                      onClick={() => setEmailMenuOpenId(null)}
+                                    />
+                                    <div
+                                      id={`email-inline-menu-${candidate.id}`}
+                                      className={`absolute right-0 z-[9999] w-72 rounded-md border bg-popover text-popover-foreground shadow-lg p-1 transition-all duration-200 ${
+                                        // Check if this is one of the last items in the list (last 3 items)
+                                        index >= paginatedCandidates.length - 3 
+                                          ? 'bottom-8' 
+                                          : 'top-8'
+                                      }`}
+                                      role="menu"
+                                    >
+                                    {/* Context-aware email actions by stage */}
+                                  {candidate.stage === "cv-new" && (
+                                    <>
+                                      <EmailMenuItem candidate={candidate} targetStage="knowledge-test" baseLabel="mời thi kỹ năng" type="interview" />
+                                      <EmailMenuItem candidate={candidate} targetStage="interview-1" baseLabel="mời phỏng vấn vòng 1" type="interview" />
+                                      <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                    </>
+                                  )}
+                                  {candidate.stage === "screening" && (
+                                    <>
+                                      <EmailMenuItem candidate={candidate} targetStage="knowledge-test" baseLabel="mời thi kỹ năng" type="interview" />
+                                      <EmailMenuItem candidate={candidate} targetStage="interview-1" baseLabel="mời phỏng vấn vòng 1" type="interview" />
+                                      <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                    </>
+                                  )}
+                                  {candidate.stage === "knowledge-test" && (
+                                    <>
+                                      <EmailMenuItem candidate={candidate} targetStage="interview-1" baseLabel="mời phỏng vấn vòng 1" type="interview" />
+                                      <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                    </>
+                                  )}
+                                  {candidate.stage === "interview-1" && (
+                                    <>
+                                      <EmailMenuItem candidate={candidate} targetStage="interview-2" baseLabel="mời phỏng vấn vòng 2" type="interview" />
+                                      <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                    </>
+                                  )}
+                                  {candidate.stage === "interview-2" && (
+                                    <>
+                                      <EmailMenuItem candidate={candidate} targetStage="hired" baseLabel="thư mời làm việc" type="offer" />
+                                      <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                    </>
+                                  )}
+                                  {candidate.stage === "offer" && (
+                                    <>
+                                      <EmailMenuItem candidate={candidate} targetStage="hired" baseLabel="thư mời làm việc" type="offer" />
+                                      <EmailMenuItem candidate={candidate} targetStage="offer" baseLabel="hướng dẫn khám sức khỏe" type="offer" />
+                                    </>
+                                  )}
+                                  {candidate.stage === "hired" && (
+                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">Đã tuyển dụng</div>
+                                  )}
+                                  {candidate.stage === "rejected" && (
+                                    <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                  )}
+                                  </div>
+                                  </>
+                                )}
+                              </div>
+                              {/* Nút ... đã được loại bỏ theo yêu cầu (không có action) */}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </TableComponent>
+                </div>
+                
+                {/* Pagination */}
+                <div className="border-t border-border p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Hiển thị {startIndex + 1}-{Math.min(endIndex, sortedCandidates.length)} trong {sortedCandidates.length} ứng viên
+                    </div>
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={handlePaginationPrevious}
+                            className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => handlePaginationPage(page)}
+                              isActive={currentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={handlePaginationNext}
+                            className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -902,7 +1705,11 @@ export default function HRAgentPage() {
       {emailCandidate && (
         <EmailCompositionModal
           isOpen={emailModalOpen}
-          onClose={() => setEmailModalOpen(false)}
+          onClose={() => {
+            setEmailModalOpen(false)
+            setEmailCandidate(null)
+            setEmailStageOverride(null)
+          }}
           onSend={handleEmailSend}
           candidate={{
             id: emailCandidate.id, // Added missing id field
@@ -911,8 +1718,42 @@ export default function HRAgentPage() {
             position: emailCandidate.viTri,
           }}
           emailType={emailType}
+          templateType={(() => {
+            const stage = emailStageOverride || emailCandidate.stage
+            const templateType = getTemplateTypeFromStage(stage, emailType)
+            console.log("HR Agent - Stage:", stage, "EmailType:", emailType, "TemplateType:", templateType)
+            console.log("HR Agent - EmailStageOverride:", emailStageOverride, "EmailCandidate.stage:", emailCandidate.stage)
+            return templateType
+          })()}
         />
       )}
+
+      {/* Bulk Email Compose Modal */}
+      <EmailCompositionModal
+        isOpen={bulkEmailComposeOpen}
+        onClose={() => {
+          setBulkEmailComposeOpen(false)
+          setEmailStageOverride(null)
+        }}
+        candidate={selectedCandidatesList[0] ? {
+          id: selectedCandidatesList[0].id,
+          name: `${selectedCandidatesList[0].hoVaTenDem} ${selectedCandidatesList[0].ten}`,
+          email: selectedCandidatesList[0].email,
+          position: selectedCandidatesList[0].viTri
+        } : null}
+        emailType={emailType}
+        onSend={handleBulkEmailSend}
+        isBulkMode={true}
+        bulkRecipients={selectedCandidatesList.map(c => ({
+          id: c.id,
+          name: `${c.hoVaTenDem} ${c.ten}`,
+          email: c.email,
+          position: c.viTri
+        }))}
+        bulkSubject={bulkEmailSubject}
+        bulkContent={bulkEmailContent}
+        bulkTemplate={bulkEmailTemplate}
+      />
     </div>
   )
 }

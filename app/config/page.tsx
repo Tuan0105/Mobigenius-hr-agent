@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -30,7 +31,7 @@ import {
   Users,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 
 // Dùng dữ liệu dùng chung từ config store
 
@@ -50,7 +51,7 @@ const mockEmailTemplates = [
 
 export default function ConfigPage() {
   const router = useRouter()
-  const { positions, criteria, addPosition, updatePosition, deletePosition, getCriteriaByPosition, getCommonCriteria, addCriteria, updateCriteria, deleteCriteria, emailTemplates, updateEmailTemplate } = useConfigData()
+  const { positions, criteria, addPosition, updatePosition, deletePosition, getCriteriaByPosition, getCommonCriteria, addCriteria, updateCriteria, deleteCriteria, emailTemplates, updateEmailTemplate, addEmailTemplate } = useConfigData()
   const { toast } = useToast()
   const addFormRef = useRef<HTMLDivElement | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -64,6 +65,55 @@ export default function ConfigPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null)
   const [emailSubject, setEmailSubject] = useState("")
   const [emailContent, setEmailContent] = useState("")
+  
+  // New template modal states
+  const [isNewTemplateModalOpen, setIsNewTemplateModalOpen] = useState(false)
+  const [newTemplateName, setNewTemplateName] = useState("")
+  const [newTemplateType, setNewTemplateType] = useState<"interview" | "interview-knowledge-test" | "interview-round-1" | "interview-round-2" | "offer" | "offer-congratulations" | "offer-health-check" | "reject" | "confirmation">("interview")
+  const [newTemplateSubject, setNewTemplateSubject] = useState("")
+  const [newTemplateContent, setNewTemplateContent] = useState("")
+
+  // Handlers to prevent infinite loops
+  const handlePositionStatusChange = useCallback((value: string) => {
+    setNewPosition(prev => ({ ...prev, status: value }))
+  }, [])
+
+  const handleModalStatusChange = useCallback((value: string) => {
+    setModalStatus(value as any)
+  }, [])
+
+  const handleModalCriteriaTypeChange = useCallback((value: string) => {
+    setModalCriteriaType(value as any)
+  }, [])
+
+  const handleTemplateTypeChange = useCallback((value: string) => {
+    setNewTemplateType(value as any)
+  }, [])
+
+  const handlePlaceholderInsert = useCallback((value: string) => {
+    const map: Record<string, string> = {
+      name: "{{TenUngVien}}",
+      position: "{{ViTriUngTuyen}}",
+      time: "{{ThoiGianPhongVan}}",
+      company: "{{TenCongTy}}",
+    }
+    const placeholder = map[value]
+    if (placeholder && contentRef.current) {
+      const textarea = contentRef.current
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const text = textarea.value
+      const before = text.substring(0, start)
+      const after = text.substring(end, text.length)
+      const newText = before + placeholder + after
+      setNewTemplateContent(newText)
+      // Set cursor position after inserted text
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + placeholder.length
+        textarea.focus()
+      }, 0)
+    }
+  }, [])
   const contentRef = useRef<HTMLTextAreaElement | null>(null)
 
   const [newPosition, setNewPosition] = useState({ name: "", status: "active" })
@@ -233,7 +283,7 @@ export default function ConfigPage() {
                         <Label htmlFor="position-status">Trạng thái</Label>
                         <Select
                           value={newPosition.status}
-                          onValueChange={(value) => setNewPosition({ ...newPosition, status: value })}
+                          onValueChange={handlePositionStatusChange}
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -281,7 +331,7 @@ export default function ConfigPage() {
                       </div>
                       <div className="space-y-2">
                         <Label>Trạng thái</Label>
-                        <Select value={modalStatus} onValueChange={(v) => setModalStatus(v as any)}>
+                        <Select value={modalStatus} onValueChange={handleModalStatusChange}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -456,7 +506,7 @@ export default function ConfigPage() {
                       </div>
                       <div className="space-y-2">
                         <Label>Loại</Label>
-                        <Select value={modalCriteriaType} onValueChange={(v) => setModalCriteriaType(v as any)}>
+                        <Select value={modalCriteriaType} onValueChange={handleModalCriteriaTypeChange}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -558,6 +608,10 @@ export default function ConfigPage() {
               <TabsContent value="templates" className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold">Quản lý Mẫu Email</h2>
+                  <Button onClick={() => setIsNewTemplateModalOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Thêm mới mẫu email
+                  </Button>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -569,18 +623,21 @@ export default function ConfigPage() {
                     <CardContent className="p-0">
                       <div className="space-y-1">
                         {emailTemplates.map((template) => (
-                          <Button
+                          <div
                             key={template.id}
-                            variant={selectedTemplateId === template.id ? "secondary" : "ghost"}
-                            className="w-full justify-start"
+                            className={`w-full text-left py-3 px-4 cursor-pointer rounded-md transition-colors hover:bg-accent hover:text-accent-foreground ${
+                              selectedTemplateId === template.id 
+                                ? "bg-secondary text-secondary-foreground" 
+                                : "text-foreground"
+                            }`}
                             onClick={() => {
                               setSelectedTemplateId(template.id)
                               setEmailSubject(template.subject)
                               setEmailContent(template.content)
                             }}
                           >
-                            {template.name}
-                          </Button>
+                            <span className="text-sm leading-relaxed break-words block w-full">{template.name}</span>
+                          </div>
                         ))}
                       </div>
                     </CardContent>
@@ -631,15 +688,7 @@ export default function ConfigPage() {
                             <Link className="h-4 w-4" />
                           </Button>
                           <div className="ml-auto">
-                        <Select onValueChange={(v) => {
-                          const map: Record<string, string> = {
-                            name: "{{TenUngVien}}",
-                            position: "{{ViTriUngTuyen}}",
-                            time: "{{ThoiGianPhongVan}}",
-                            company: "{{TenCongTy}}",
-                          }
-                          setEmailContent((prev) => prev + (prev.endsWith("\n") ? "" : "\n") + (map[v] || ""))
-                        }}>
+                        <Select onValueChange={handlePlaceholderInsert}>
                               <SelectTrigger className="w-48">
                                 <SelectValue placeholder="Chèn trường động" />
                               </SelectTrigger>
@@ -678,6 +727,138 @@ export default function ConfigPage() {
           </div>
         </div>
       </main>
+
+      {/* New Email Template Sidepanel */}
+      <Sheet open={isNewTemplateModalOpen} onOpenChange={setIsNewTemplateModalOpen}>
+        <SheetContent side="right" className="w-[90vw] sm:w-[95vw] sm:max-w-none p-0 flex flex-col">
+          <SheetHeader className="px-6 py-4 border-b flex-shrink-0">
+            <SheetTitle className="text-xl font-semibold">Tạo mẫu email mới</SheetTitle>
+            <SheetDescription>
+              Tạo mẫu email mới để sử dụng trong hệ thống tuyển dụng
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="flex flex-1 min-h-0">
+            {/* Left Column - Form */}
+            <div className="w-1/2 p-6 border-r overflow-y-auto">
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="template-name">Tên mẫu email</Label>
+                    <Input
+                      id="template-name"
+                      placeholder="Nhập tên mẫu email..."
+                      value={newTemplateName}
+                      onChange={(e) => setNewTemplateName(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="template-type">Loại mẫu</Label>
+                    <Select value={newTemplateType} onValueChange={handleTemplateTypeChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn loại mẫu" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="interview-knowledge-test">Thư mời tham dự vòng thi kiến thức, kỹ năng</SelectItem>
+                        <SelectItem value="interview-round-1">Thư mời tham dự phỏng vấn</SelectItem>
+                        <SelectItem value="interview-round-2">Thư mời tham dự phỏng vấn vòng 2</SelectItem>
+                        <SelectItem value="offer-congratulations">Thư chúc mừng trúng tuyển và hướng dẫn bổ sung hồ sơ nhân sự</SelectItem>
+                        <SelectItem value="offer-health-check">Hướng dẫn thủ tục khám sức khỏe tuyển dụng đầu vào</SelectItem>
+                        <SelectItem value="reject">Thư từ chối</SelectItem>
+                        <SelectItem value="confirmation">Xác nhận nhận việc</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="template-subject">Tiêu đề email</Label>
+                  <Input
+                    id="template-subject"
+                    placeholder="Nhập tiêu đề email..."
+                    value={newTemplateSubject}
+                    onChange={(e) => setNewTemplateSubject(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="template-content">Nội dung email</Label>
+                  <Textarea
+                    id="template-content"
+                    placeholder="Nhập nội dung email..."
+                    value={newTemplateContent}
+                    onChange={(e) => setNewTemplateContent(e.target.value)}
+                    className="min-h-96"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column - Preview & Help */}
+            <div className="w-1/2 p-6 overflow-y-auto">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Xem trước email</h3>
+                <div className="border rounded-lg bg-white shadow-sm">
+                  <div className="p-4 border-b bg-muted/30">
+                    <div className="text-sm text-muted-foreground">Từ: hr@mobifone.vn</div>
+                    <div className="text-sm text-muted-foreground">Đến: {`{{TenUngVien}}`}</div>
+                    <div className="font-medium">{newTemplateSubject || "Tiêu đề email"}</div>
+                  </div>
+                  <div className="p-4 max-h-96 overflow-auto">
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">{newTemplateContent || "Nội dung email sẽ hiển thị ở đây..."}</div>
+                  </div>
+                </div>
+
+                <div className="bg-muted p-4 rounded-lg">
+                  <h4 className="font-medium mb-2">Các placeholder có thể sử dụng:</h4>
+                  <div className="space-y-2 text-sm">
+                    <div><code className="bg-background px-1 rounded">{'{{TenUngVien}}'}</code> - Tên ứng viên</div>
+                    <div><code className="bg-background px-1 rounded">{'{{ViTriUngTuyen}}'}</code> - Vị trí ứng tuyển</div>
+                    <div><code className="bg-background px-1 rounded">{'{{ThoiGianPhongVan}}'}</code> - Thời gian phỏng vấn</div>
+                    <div><code className="bg-background px-1 rounded">{'{{NgayXacNhan}}'}</code> - Ngày xác nhận</div>
+                    <div><code className="bg-background px-1 rounded">{'{{NgayBatDau}}'}</code> - Ngày bắt đầu làm việc</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-6 py-4 border-t bg-background flex-shrink-0">
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setIsNewTemplateModalOpen(false)}>
+                Hủy
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (!newTemplateName.trim() || !newTemplateSubject.trim() || !newTemplateContent.trim()) {
+                    toast({ title: "Lỗi", description: "Vui lòng điền đầy đủ thông tin" })
+                    return
+                  }
+                  
+                  addEmailTemplate({
+                    name: newTemplateName,
+                    type: newTemplateType,
+                    subject: newTemplateSubject,
+                    content: newTemplateContent,
+                  })
+                  
+                  toast({ title: "Thành công", description: "Đã tạo mẫu email mới" })
+                  setIsNewTemplateModalOpen(false)
+                  
+                  // Reset form
+                  setNewTemplateName("")
+                  setNewTemplateType("interview")
+                  setNewTemplateSubject("")
+                  setNewTemplateContent("")
+                }}
+              >
+                Tạo mẫu
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

@@ -25,7 +25,7 @@ export interface ScreeningCriteria {
 export interface EmailTemplate {
   id: number
   name: string
-  type: "interview" | "offer" | "reject" | "confirmation"
+  type: "interview" | "interview-knowledge-test" | "interview-round-1" | "interview-round-2" | "offer" | "offer-congratulations" | "offer-health-check" | "reject" | "confirmation"
   subject: string
   content: string
   createdAt: string
@@ -101,17 +101,47 @@ const initialCriteria: ScreeningCriteria[] = [
 const initialEmailTemplates: EmailTemplate[] = [
   {
     id: 1,
-    name: "Thư mời phỏng vấn",
-    type: "interview",
-    subject: "Thư mời phỏng vấn - Vị trí {{ViTriUngTuyen}}",
+    name: "Thư mời tham dự vòng thi kiến thức, kỹ năng",
+    type: "interview-knowledge-test",
+    subject: "Thư mời tham dự vòng thi kiến thức, kỹ năng - Vị trí {{ViTriUngTuyen}}",
     content: `Thân gửi {{TenUngVien}}!
 
-Chúc mừng bạn đã vượt qua vòng sàng lọc hồ sơ và được mời tham gia phỏng vấn cho vị trí {{ViTriUngTuyen}} tại Tổng Công ty Viễn thông MobiFone.
+Chúc mừng bạn đã vượt qua vòng sàng lọc hồ sơ và được mời tham gia vòng thi kiến thức, kỹ năng cho vị trí {{ViTriUngTuyen}} tại Tổng Công ty Viễn thông MobiFone.
+
+Thông tin thi kiến thức, kỹ năng:
+- Thời gian dự kiến: {{ThoiGianPhongVan}}
+- Địa điểm: Trung tâm Công nghệ thông tin MobiFone, Tầng 10, tòa nhà Thái Nam, 22D đường Dương Đình Nghệ, Cầu Giấy, Hà Nội
+- Hình thức: Thi trực tiếp tại văn phòng
+- Thời gian dự kiến: 90 phút
+- Nội dung thi: Kiến thức chuyên môn và kỹ năng thực hành
+
+Vui lòng có mặt đúng giờ và xác nhận tham gia thi bằng cách trả lời email này trước {{NgayXacNhan}} để chúng tôi có thể chuẩn bị tốt nhất.
+
+Chúc bạn sức khỏe và thành công trong sự nghiệp!
+
+Trân trọng,
+Bộ phận tuyển dụng
+Trung tâm Công nghệ thông tin MobiFone
+Website: it.mobifone.vn/tuyen-dung
+Facebook: www.facebook.com/MobifoneIT
+Mọi thắc mắc liên hệ: 0906.073.906`,
+    createdAt: "2025-09-01T00:00:00Z",
+    updatedAt: "2025-09-29T00:00:00Z",
+  },
+  {
+    id: 2,
+    name: "Thư mời tham dự phỏng vấn",
+    type: "interview-round-1",
+    subject: "Thư mời tham dự phỏng vấn - Vị trí {{ViTriUngTuyen}}",
+    content: `Thân gửi {{TenUngVien}}!
+
+Chúc mừng bạn đã vượt qua vòng thi kiến thức, kỹ năng và được mời tham gia phỏng vấn cho vị trí {{ViTriUngTuyen}} tại Tổng Công ty Viễn thông MobiFone.
 
 Thông tin phỏng vấn:
 - Thời gian dự kiến: {{ThoiGianPhongVan}}
 - Địa điểm: Trung tâm Công nghệ thông tin MobiFone, Tầng 10, tòa nhà Thái Nam, 22D đường Dương Đình Nghệ, Cầu Giấy, Hà Nội
 - Hình thức: Phỏng vấn trực tiếp
+- Thời gian dự kiến: 60 phút
 
 Vui lòng có mặt đúng giờ và xác nhận tham gia phỏng vấn bằng cách trả lời email này trước {{NgayXacNhan}} để chúng tôi có thể chuẩn bị tốt nhất.
 
@@ -127,7 +157,36 @@ Mọi thắc mắc liên hệ: 0906.073.906`,
     updatedAt: "2025-09-29T00:00:00Z",
   },
   {
-    id: 2,
+    id: 3,
+    name: "Thư mời tham dự phỏng vấn vòng 2",
+    type: "interview-round-2",
+    subject: "Thư mời tham dự phỏng vấn vòng 2 - Vị trí {{ViTriUngTuyen}}",
+    content: `Thân gửi {{TenUngVien}}!
+
+Chúc mừng bạn đã vượt qua vòng phỏng vấn đầu tiên và được mời tham gia phỏng vấn vòng 2 cho vị trí {{ViTriUngTuyen}} tại Tổng Công ty Viễn thông MobiFone.
+
+Thông tin phỏng vấn vòng 2:
+- Thời gian dự kiến: {{ThoiGianPhongVan}}
+- Địa điểm: Trung tâm Công nghệ thông tin MobiFone, Tầng 10, tòa nhà Thái Nam, 22D đường Dương Đình Nghệ, Cầu Giấy, Hà Nội
+- Hình thức: Phỏng vấn trực tiếp
+- Thời gian dự kiến: 90 phút
+- Nội dung: Phỏng vấn chuyên sâu về kỹ năng và kinh nghiệm
+
+Vui lòng có mặt đúng giờ và xác nhận tham gia phỏng vấn bằng cách trả lời email này trước {{NgayXacNhan}} để chúng tôi có thể chuẩn bị tốt nhất.
+
+Chúc bạn sức khỏe và thành công trong sự nghiệp!
+
+Trân trọng,
+Bộ phận tuyển dụng
+Trung tâm Công nghệ thông tin MobiFone
+Website: it.mobifone.vn/tuyen-dung
+Facebook: www.facebook.com/MobifoneIT
+Mọi thắc mắc liên hệ: 0906.073.906`,
+    createdAt: "2025-09-01T00:00:00Z",
+    updatedAt: "2025-09-29T00:00:00Z",
+  },
+  {
+    id: 4,
     name: "Thư từ chối",
     type: "reject",
     subject: "Thông báo kết quả ứng tuyển - Vị trí {{ViTriUngTuyen}}",
@@ -153,29 +212,36 @@ Mọi thắc mắc liên hệ: 0906.073.906`,
     updatedAt: "2025-09-29T00:00:00Z",
   },
   {
-    id: 3,
-    name: "Thư gửi offer",
-    type: "offer",
-    subject: "Thư chào mừng - Chúc mừng bạn đã trúng tuyển vị trí {{ViTriUngTuyen}}",
-    content: `Thân gửi {{TenUngVien}},
+    id: 5,
+    name: "Thư chúc mừng trúng tuyển và hướng dẫn bổ sung hồ sơ nhân sự",
+    type: "offer-congratulations",
+    subject: "Thư chúc mừng trúng tuyển và hướng dẫn bổ sung hồ sơ nhân sự - Vị trí {{ViTriUngTuyen}}",
+    content: `Thân gửi {{TenUngVien}}!
 
-Chúc mừng! Chúng tôi rất vui mừng thông báo rằng bạn đã được chọn cho vị trí {{ViTriUngTuyen}} tại Tổng Công ty Viễn thông MobiFone.
+Chúc mừng bạn đã vượt qua tất cả các vòng tuyển dụng và được chọn làm nhân sự chính thức cho vị trí {{ViTriUngTuyen}} tại Trung tâm Công nghệ thông tin MobiFone.
 
 Thông tin công việc:
 - Vị trí: {{ViTriUngTuyen}}
-- Mức lương: Thỏa thuận (sẽ được thảo luận chi tiết)
-- Ngày bắt đầu làm việc: {{NgayBatDau}}
-- Địa điểm làm việc: Trung tâm Công nghệ thông tin MobiFone, Tầng 10, tòa nhà Thái Nam, 22D đường Dương Đình Nghệ, Cầu Giấy, Hà Nội
+- Địa điểm làm việc: Phòng Big Data, Trung tâm CNTT MobiFone, Tầng 10, Thái Nam Building, 22D Dương Đình Nghệ, Yên Hoà, Cầu Giấy
+- Khung lương sau thử việc: Chuyên viên Khung E – bậc 1
 
-Quyền lợi:
-- Lương tháng 13, thưởng theo hiệu suất
-- Bảo hiểm sức khỏe cao cấp
-- Môi trường làm việc hiện đại, năng động
-- Cơ hội phát triển nghề nghiệp
+Để hoàn tất thủ tục nhận việc, bạn vui lòng chuẩn bị và nộp hồ sơ bổ sung theo danh mục sau:
 
-Vui lòng xác nhận việc nhận offer này trong vòng 7 ngày làm việc kể từ ngày nhận email.
+1. Đơn dự tuyển (Đơn xin việc)
+2. Bản sao Giấy khai sinh
+3. Bản sao có công chứng CMTND/CCCD
+4. Bản sao có công chứng: Bằng tốt nghiệp Đại học, Bảng điểm Đại học, Chứng chỉ ngoại ngữ (trình độ B1 trở lên)
+5. Sơ yếu lý lịch có xác nhận của cơ quan có thẩm quyền (không quá 03 tháng tính đến ngày nộp hồ sơ)
+6. Bản sao công chứng Sổ hộ khẩu/Đăng ký tạm trú hoặc Bản sao/chụp hệ thống quản lý cư dân điện tử
+7. Giấy chứng nhận khám sức khoẻ mẫu A3 (không quá 03 tháng tính đến ngày nộp hồ sơ)
+8. 03 ảnh 4x6 mới nhất
 
-Chúng tôi rất mong chờ được chào đón bạn vào đội ngũ MobiFone!
+Thông tin nộp hồ sơ:
+- Người liên hệ: Cô Hương - 0906073906
+- Địa chỉ: Phòng Tổng hợp, Trung tâm CNTT MobiFone, tòa nhà Thái Nam, đường Dương Đình Nghệ, phường Yên Hòa, quận Cầu Giấy, Hà Nội
+- Hạn nộp: Trước ngày {{NgayNopHoSo}}
+
+Chúc bạn sức khỏe và thành công!
 
 Trân trọng,
 Bộ phận tuyển dụng
@@ -187,7 +253,54 @@ Mọi thắc mắc liên hệ: 0906.073.906`,
     updatedAt: "2025-09-29T00:00:00Z",
   },
   {
-    id: 4,
+    id: 6,
+    name: "Hướng dẫn thủ tục khám sức khỏe tuyển dụng đầu vào",
+    type: "offer-health-check",
+    subject: "Hướng dẫn thủ tục khám sức khỏe tuyển dụng đầu vào - MobiFone IT",
+    content: `Thân gửi {{TenUngVien}}!
+
+Chúc mừng bạn đã trở thành Chuyên viên Chính thức của Trung tâm Công nghệ thông tin MobiFone. Chúng tôi đánh giá cao chuyên môn, năng lực và kinh nghiệm làm việc của bạn.
+
+Để hoàn tất thủ tục nhận việc, bạn vui lòng thực hiện khám sức khỏe theo hướng dẫn sau:
+
+HƯỚNG DẪN KHÁM SỨC KHỎE:
+- Địa chỉ khám: Bệnh viện Bưu Điện – 49 Trần Điền, Định Công, Hà Nội
+- Gói khám: 584.000 đồng
+- Vật dụng cần mang: 01 ảnh thẻ 4x6 và Căn cước công dân
+- Thời gian khám: Giờ hành chính từ Thứ 2 đến Thứ 6
+
+Quy trình khám:
+1. Tại Quầy tiếp đón, đăng ký gói khám sức khỏe tuyển dụng của MobiFone
+2. Làm theo hướng dẫn của bệnh viện
+3. Tự thanh toán chi phí khám sức khỏe
+4. Mang đầy đủ hóa đơn chứng từ về để Trung tâm hoàn trả phí khám
+
+Hồ sơ cần mang về nộp lại Trung tâm:
+1. Toàn bộ hồ sơ khám sức khỏe bản gốc (bao gồm phiếu xét nghiệm, phim chụp X quang...)
+2. Giấy khám sức khỏe (có đóng dấu)
+3. Hóa đơn + Bảng kê chi phí (có đóng dấu)
+
+THÔNG TIN XUẤT HÓA ĐƠN:
+- Họ tên người mua hàng: {{TenUngVien}}
+- Tên đơn vị: TRUNG TÂM CÔNG NGHỆ THÔNG TIN MOBIFONE - CHI NHÁNH TỔNG CÔNG TY VIỄN THÔNG MOBIFONE
+- Mã số thuế: 0100686209-166
+- Địa chỉ: số 01 phố Phạm Văn Bạch, Phường Yên Hoà, Quận Cầu Giấy, Thành Phố Hà Nội, Việt Nam
+
+Lưu ý: Vui lòng xuất hóa đơn chính xác thông tin trên (trường hợp hóa đơn sai thông tin sẽ không thể thanh toán chi phí khám).
+
+Chúc bạn sức khỏe và thành công!
+
+Trân trọng,
+Bộ phận tuyển dụng
+Trung tâm Công nghệ thông tin MobiFone
+Website: it.mobifone.vn/tuyen-dung
+Facebook: www.facebook.com/MobifoneIT
+Mọi thắc mắc liên hệ: 0906.073.906`,
+    createdAt: "2025-09-01T00:00:00Z",
+    updatedAt: "2025-09-29T00:00:00Z",
+  },
+  {
+    id: 7,
     name: "Thư xác nhận nhận việc",
     type: "confirmation",
     subject: "Xác nhận nhận việc - Chào mừng bạn đến với MobiFone",
@@ -288,6 +401,16 @@ export function useConfigData() {
     [emailTemplates],
   )
 
+  const addEmailTemplate = useCallback((templateData: Omit<EmailTemplate, "id" | "createdAt" | "updatedAt">) => {
+    const newTemplate: EmailTemplate = {
+      ...templateData,
+      id: Date.now(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    setEmailTemplates((prev) => [...prev, newTemplate])
+  }, [])
+
   const updateEmailTemplate = useCallback((id: number, updates: Partial<EmailTemplate>) => {
     setEmailTemplates((prev) =>
       prev.map((template) =>
@@ -317,6 +440,7 @@ export function useConfigData() {
 
     // Email template methods
     getTemplateByType,
+    addEmailTemplate,
     updateEmailTemplate,
   }
 }

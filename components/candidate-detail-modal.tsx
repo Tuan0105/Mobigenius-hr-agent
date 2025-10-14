@@ -57,8 +57,6 @@ export function CandidateDetailModal({
     switch (status) {
       case "suitable":
         return "bg-success text-success-foreground"
-      case "pending":
-        return "bg-warning text-warning-foreground"
       case "unsuitable":
         return "bg-destructive text-destructive-foreground"
       default:
@@ -70,8 +68,6 @@ export function CandidateDetailModal({
     switch (status) {
       case "suitable":
         return "Phù hợp"
-      case "pending":
-        return "Chờ xem xét"
       case "unsuitable":
         return "Không phù hợp"
       default:
@@ -178,8 +174,11 @@ export function CandidateDetailModal({
       }
     }
 
-    // Nếu "Phù hợp" thì chỉ đóng sidepanel, giữ nguyên vị trí hiện tại
-    if (status === "suitable") {
+    // Nếu "Phù hợp" thì chuyển sang giai đoạn sàng lọc
+    if (status === "suitable" && candidate.stage === "cv-new" && onStageUpdate) {
+      onStageUpdate(candidate.id, "screening")
+      onClose()
+    } else if (status === "suitable") {
       onClose()
     }
   }
@@ -447,7 +446,7 @@ export function CandidateDetailModal({
                     </div>
                     <div className="space-y-2">
                       {/* Nút hành động theo giai đoạn */}
-                      {candidate.stage === "screening" && candidate.status === "pending" && (
+                      {(candidate.stage === "cv-new" || (candidate.stage === "screening" && candidate.status !== "suitable" && candidate.status !== "unsuitable")) && (
                         <>
                           <Button className="w-full gap-2" onClick={() => handleStatusUpdate("suitable")}>
                             <CheckCircle className="h-4 w-4" />
@@ -601,7 +600,10 @@ export function CandidateDetailModal({
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">Điểm tổng:</span>
-                        <Badge className={getStatusColor(candidate.status)}>{candidate.score}/100</Badge>
+                        {(() => {
+                          const aiStatus = candidate.score >= 50 ? "suitable" : "unsuitable"
+                          return <Badge className={getStatusColor(aiStatus)}>{candidate.score}/100</Badge>
+                        })()}
                       </div>
                       <div className="space-y-2">
                         {screeningResults.map((result, index) => (

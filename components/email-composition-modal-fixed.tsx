@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
 import { CalendarIcon, Send, X } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 interface EmailCompositionModalProps {
   isOpen: boolean
@@ -26,7 +26,6 @@ interface EmailCompositionModalProps {
     position: string
   } | null
   emailType: "interview" | "offer" | "reject"
-  templateType?: string // New prop for specific template type
   isBulkMode?: boolean
   bulkRecipients?: Array<{
     id: number
@@ -55,7 +54,6 @@ export function EmailCompositionModal({
   onSend, 
   candidate, 
   emailType, 
-  templateType,
   isBulkMode = false,
   bulkRecipients = [],
   bulkSubject = "",
@@ -65,15 +63,6 @@ export function EmailCompositionModal({
   const { toast } = useToast()
   const { getTemplateByType } = useConfigData()
   
-  // Get template separately to avoid dependency issues
-  const template = useMemo(() => {
-    const typeToUse = templateType || emailType
-    console.log("EmailCompositionModal - Getting template for type:", typeToUse)
-    const templateResult = getTemplateByType(typeToUse as any)
-    console.log("EmailCompositionModal - Template result:", templateResult)
-    return templateResult
-  }, [getTemplateByType, templateType, emailType])
-  
   // Memoize initial email data to prevent unnecessary re-renders
   const initialEmailData = useMemo(() => {
     if (isBulkMode) {
@@ -82,22 +71,25 @@ export function EmailCompositionModal({
         subject: bulkSubject,
         content: bulkContent,
       }
-    } else if (candidate && template) {
-      const processedSubject = template.subject
-        .replace(/{{TenUngVien}}/g, candidate.name)
-        .replace(/{{ViTriUngTuyen}}/g, candidate.position)
+    } else if (candidate) {
+      const template = getTemplateByType(emailType)
+      if (template) {
+        const processedSubject = template.subject
+          .replace(/{{TenUngVien}}/g, candidate.name)
+          .replace(/{{ViTriUngTuyen}}/g, candidate.position)
 
-      const processedContent = template.content
-        .replace(/{{TenUngVien}}/g, candidate.name)
-        .replace(/{{ViTriUngTuyen}}/g, candidate.position)
-        .replace(/{{ThoiGianPhongVan}}/g, '{{ThoiGianPhongVan}}')
-        .replace(/{{NgayXacNhan}}/g, '{{NgayXacNhan}}')
-        .replace(/{{NgayBatDau}}/g, '{{NgayBatDau}}')
+        const processedContent = template.content
+          .replace(/{{TenUngVien}}/g, candidate.name)
+          .replace(/{{ViTriUngTuyen}}/g, candidate.position)
+          .replace(/{{ThoiGianPhongVan}}/g, '{{ThoiGianPhongVan}}')
+          .replace(/{{NgayXacNhan}}/g, '{{NgayXacNhan}}')
+          .replace(/{{NgayBatDau}}/g, '{{NgayBatDau}}')
 
-      return {
-        to: candidate.email,
-        subject: processedSubject,
-        content: processedContent,
+        return {
+          to: candidate.email,
+          subject: processedSubject,
+          content: processedContent,
+        }
       }
     }
     return {
@@ -105,27 +97,21 @@ export function EmailCompositionModal({
       subject: "",
       content: "",
     }
-  }, [isBulkMode, bulkRecipients, bulkSubject, bulkContent, candidate, template])
+  }, [isBulkMode, bulkRecipients, bulkSubject, bulkContent, candidate, emailType, getTemplateByType])
 
-  const [emailData, setEmailData] = useState<EmailData>(() => initialEmailData)
+  const [emailData, setEmailData] = useState<EmailData>(initialEmailData)
   const [interviewDate, setInterviewDate] = useState<Date>()
   const [interviewTime, setInterviewTime] = useState("")
   const [confirmDate, setConfirmDate] = useState<Date>()
   const [isLoading, setIsLoading] = useState(false)
   const [showInterviewPicker, setShowInterviewPicker] = useState(false)
   const [showConfirmPicker, setShowConfirmPicker] = useState(false)
-  
-  // Use ref to track if we've already initialized
-  const hasInitialized = useRef(false)
-
-  // Handler for interview time selection to prevent infinite loops
-  const handleInterviewTimeChange = useCallback((value: string) => {
-    setInterviewTime(value)
-  }, [])
 
   // Initialize email data when modal opens
   useEffect(() => {
     if (isOpen) {
+      setEmailData(initialEmailData)
+      
       // Set confirm date to 5 days from now
       const today = new Date()
       const confirmDate = new Date(today)
@@ -136,20 +122,10 @@ export function EmailCompositionModal({
       setInterviewDate(undefined)
       setInterviewTime("")
     }
-  }, [isOpen])
-
-  // Update email data when modal opens with new data
-  useEffect(() => {
-    if (isOpen && !hasInitialized.current) {
-      setEmailData(initialEmailData)
-      hasInitialized.current = true
-    } else if (!isOpen) {
-      hasInitialized.current = false
-    }
   }, [isOpen, initialEmailData])
 
   // Update content when interview date/time changes
-  useEffect(() => {
+  const updateEmailContent = useCallback(() => {
     if (emailType === "interview" && interviewDate && interviewTime && confirmDate) {
       const formattedDateTime = `${format(interviewDate, "EEEE, dd/MM/yyyy", { locale: vi })} lúc ${interviewTime}`
       const confirmDateText = format(confirmDate, "dd/MM/yyyy", { locale: vi })
@@ -164,6 +140,11 @@ export function EmailCompositionModal({
       }))
     }
   }, [emailType, interviewDate, interviewTime, confirmDate])
+
+  // Update content when interview date/time changes
+  useEffect(() => {
+    updateEmailContent()
+  }, [updateEmailContent])
 
   // Inject custom CSS for calendar styling
   useEffect(() => {
@@ -266,7 +247,7 @@ export function EmailCompositionModal({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent side="right" className="w-[90vw] sm:w-[95vw] sm:max-w-none p-0 flex flex-col">
         <SheetHeader className="px-6 py-4 border-b flex-shrink-0">
           <SheetTitle className="text-xl font-semibold">
@@ -337,7 +318,7 @@ export function EmailCompositionModal({
 
                   <div className="space-y-2">
                     <Label>Chọn giờ phỏng vấn</Label>
-                    <Select value={interviewTime} onValueChange={handleInterviewTimeChange}>
+                    <Select value={interviewTime} onValueChange={setInterviewTime}>
                       <SelectTrigger>
                         <SelectValue placeholder="Chọn giờ" />
                       </SelectTrigger>

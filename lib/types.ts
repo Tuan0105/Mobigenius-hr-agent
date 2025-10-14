@@ -22,7 +22,7 @@ export interface Candidate {
   lyDoLoai: string
   donViSangLocHS: string
   score: number
-  status: "suitable" | "pending" | "unsuitable"
+  status: "suitable" | "unsuitable"
   stage: "cv-new" | "screening" | "knowledge-test" | "interview-1" | "interview-2" | "offer" | "hired" | "rejected"
   skills: string[]
   notes: string

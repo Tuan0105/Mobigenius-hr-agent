@@ -79,7 +79,7 @@ const initialCandidates: Candidate[] = [
     donViSangLocHS: "HR Team",
     score: 92,
     status: "suitable",
-    stage: "screening",
+    stage: "knowledge-test",
     skills: ["Node.js", "Python", "PostgreSQL", "Docker", "AWS"],
     notes: "Ứng viên xuất sắc với kinh nghiệm backend mạnh",
     createdAt: "2025-09-27T15:30:00Z",
@@ -184,7 +184,7 @@ const initialCandidates: Candidate[] = [
     donViSangLocHS: "HR Team",
     score: 95,
     status: "suitable",
-    stage: "offer",
+    stage: "hired",
     skills: ["Kubernetes", "Terraform", "Jenkins", "Prometheus", "Grafana"],
     notes: "Chuyên gia DevOps với kinh nghiệm dày dặn",
     createdAt: "2025-09-25T08:45:00Z",
@@ -208,8 +208,8 @@ const initialCandidates: Candidate[] = [
       {
         id: 10,
         candidateId: 4,
-        action: "Phỏng vấn thành công",
-        user: "Technical Lead",
+        action: "Gửi thư chúc mừng trúng tuyển",
+        user: "HR Manager",
         timestamp: "2025-09-29T16:20:00Z",
       },
     ],
@@ -239,7 +239,7 @@ const initialCandidates: Candidate[] = [
     lyDoLoai: "",
     donViSangLocHS: "HR Team",
     score: 78,
-    status: "pending",
+    status: "suitable",
     stage: "cv-new",
     skills: ["Figma", "Adobe XD", "Sketch", "Photoshop", "Illustrator"],
     notes: "Designer có kinh nghiệm tốt với UI/UX",
@@ -275,7 +275,9 @@ export function useHRData() {
   const filteredCandidates = candidates.filter((candidate) => {
     const matchesPosition = filters.position === "all" || candidate.viTri.toLowerCase().includes(filters.position.toLowerCase())
     const matchesStage = filters.stage === "all" || candidate.stage === filters.stage
-    const matchesStatus = filters.status === "all" || candidate.status === filters.status
+    // AI result derived from score: >=50 suitable, else unsuitable
+    const derivedAIStatus = candidate.score >= 50 ? "suitable" : "unsuitable"
+    const matchesStatus = filters.status === "all" || derivedAIStatus === filters.status
     const matchesSearch = filters.search === "" || 
       candidate.hoVaTenDem.toLowerCase().includes(filters.search.toLowerCase()) ||
       candidate.ten.toLowerCase().includes(filters.search.toLowerCase()) ||
@@ -365,7 +367,7 @@ export function useHRData() {
         lyDoLoai: "",
         donViSangLocHS: "HR Team",
         score: 0,
-        status: "pending",
+        status: "unsuitable",
         stage: "cv-new",
         skills: ["HTML", "CSS", "JavaScript", "React"],
         notes: "CV mới từ email",
