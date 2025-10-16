@@ -22,13 +22,12 @@ import type { Candidate } from "@/lib/types"
 import { closestCenter, DndContext, type DragEndEvent, DragOverlay, type DragStartEvent, PointerSensor, useDroppable, useSensor, useSensors } from "@dnd-kit/core"
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { Check, Cloud, Download, Eye, Grid3X3, Loader2, Mail, MoreHorizontal, Plus, Search, Send, Settings, Table } from "lucide-react"
+import { Check, Cloud, Download, Eye, Grid3X3, Loader2, Mail, MoreHorizontal, Search, Send, Settings, Table } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useCallback, useState } from "react"
 
 const stages = [
   { id: "cv-new", title: "CV Mới" },
-  { id: "screening", title: "Đang Sàng Lọc" },
   { id: "bpcm-pending", title: "Chờ BPCM Duyệt" },
   { id: "bpcm-approved", title: "BPCM Đã Duyệt" },
   { id: "bpcm-rejected", title: "BPCM Từ Chối" },
@@ -1362,7 +1361,7 @@ export default function HRAgentPage() {
                   Đồng bộ CV từ Email
                 </Button>
                 
-                {viewMode === "table" && (
+                {/* {viewMode === "table" && (
                   <Button 
                     variant="outline" 
                     className="gap-2"
@@ -1370,7 +1369,7 @@ export default function HRAgentPage() {
                     <Plus className="h-4 w-4" />
                     Thêm ứng viên
                   </Button>
-                )}
+                )} */}
 
                 {/* Bulk Actions (only in table view) */}
                 {viewMode === "table" && (
@@ -1476,7 +1475,6 @@ export default function HRAgentPage() {
                   <SelectContent>
                     <SelectItem value="all">Tất cả</SelectItem>
                     <SelectItem value="cv-new">CV Mới</SelectItem>
-                    <SelectItem value="screening">Đang Sàng Lọc</SelectItem>
                     <SelectItem value="bpcm-pending">Chờ BPCM Duyệt</SelectItem>
                     <SelectItem value="bpcm-approved">BPCM Đã Duyệt</SelectItem>
                     <SelectItem value="bpcm-rejected">BPCM Từ Chối</SelectItem>
@@ -1491,7 +1489,7 @@ export default function HRAgentPage() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-muted-foreground">Kết quả sàng lọc</label>
+                <label className="text-sm font-medium text-muted-foreground">Kết quả sàng lọc AI</label>
                 <Select value={filters.status} onValueChange={handleStatusFilter}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="Chọn kết quả" />

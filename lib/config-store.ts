@@ -37,7 +37,7 @@ export const POSITION_NAMES = [
   "ATTT",
   "DEV",
   "DEV Mobile",
-  "UI UX",
+  "UI/UX",
   "PO",
   "AI Engineer",
   "BA",
@@ -72,7 +72,7 @@ const initialCriteria: ScreeningCriteria[] = [
   // 3: DEV Mobile
   { id: 301, positionId: 3, name: "Nền tảng", value: "Flutter/React Native", type: "custom", enabled: true, createdAt: "2025-09-01T00:00:00Z", updatedAt: "2025-09-29T00:00:00Z" },
   { id: 302, positionId: 3, name: "Phát hành", value: "Đã phát hành app thực tế", type: "custom", enabled: true, createdAt: "2025-09-01T00:00:00Z", updatedAt: "2025-09-29T00:00:00Z" },
-  // 4: UI UX
+  // 4: UI/UX
   { id: 401, positionId: 4, name: "Công cụ", value: "Figma/XD/Sketch", type: "custom", enabled: true, createdAt: "2025-09-01T00:00:00Z", updatedAt: "2025-09-29T00:00:00Z" },
   { id: 402, positionId: 4, name: "Portfolio", value: "Bắt buộc", type: "hard", enabled: true, createdAt: "2025-09-01T00:00:00Z", updatedAt: "2025-09-29T00:00:00Z" },
   // 5: PO
