@@ -1839,6 +1839,10 @@ export default function HRAgentPage() {
           onStatusUpdate={handleStatusUpdate}
           onStageUpdate={handleStageUpdate}
           allCandidates={candidates}
+          onOpenBPCMSelector={(c) => {
+            setBpcmCandidate(c)
+            setBpcmSelectorOpen(true)
+          }}
         />
       )}
 

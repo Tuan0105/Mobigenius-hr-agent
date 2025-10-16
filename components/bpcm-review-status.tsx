@@ -39,9 +39,9 @@ export function BPCMReviewStatus({ reviews }: BPCMReviewStatusProps) {
       <div className="space-y-2">
         <div className="font-medium text-sm mb-2">Chi tiết kết quả duyệt:</div>
         {reviews.map((review) => (
-          <div key={review.id} className="flex items-center justify-between text-xs">
+          <div key={review.id} className="flex items-center justify-between text-xs gap-4">
             <span className="font-medium">{review.departmentName}</span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 ml-2">
               {review.status === "approved" && (
                 <>
                   <Check className="h-3 w-3 text-green-600" />
@@ -73,18 +73,14 @@ export function BPCMReviewStatus({ reviews }: BPCMReviewStatusProps) {
         <TooltipTrigger asChild>
           <div className="cursor-pointer">
             <Badge 
-              variant={
-                approvedCount > 0 ? "default" : 
-                rejectedCount > 0 ? "destructive" : 
-                "secondary"
-              }
+              variant="default"
               className="text-xs"
             >
               {getStatusText()}
             </Badge>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs">
+        <TooltipContent side="top" className="max-w-xs bg-white text-slate-900 border border-slate-200 shadow-md">
           {getTooltipContent()}
         </TooltipContent>
       </Tooltip>

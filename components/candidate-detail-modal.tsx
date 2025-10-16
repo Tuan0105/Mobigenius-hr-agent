@@ -32,6 +32,8 @@ interface CandidateDetailModalProps {
   onStatusUpdate?: (candidateId: number, status: Candidate["status"]) => void
   onStageUpdate?: (candidateId: number, stage: string) => void
   allCandidates?: Candidate[]
+  // Trigger BPCM department selector from parent
+  onOpenBPCMSelector?: (candidate: Candidate) => void
 }
 
 export function CandidateDetailModal({
@@ -43,6 +45,7 @@ export function CandidateDetailModal({
   onStatusUpdate,
   onStageUpdate,
   allCandidates = [],
+  onOpenBPCMSelector,
 }: CandidateDetailModalProps) {
   const [notes, setNotes] = useState(candidate.notes || "")
   const [emailModalOpen, setEmailModalOpen] = useState(false)
@@ -174,11 +177,16 @@ export function CandidateDetailModal({
       }
     }
 
-    // Nếu "Phù hợp" thì chuyển sang giai đoạn sàng lọc
-    if (status === "suitable" && candidate.stage === "cv-new" && onStageUpdate) {
-      onStageUpdate(candidate.id, "screening")
+    // Nếu "Phù hợp" ở CV mới: mở popup chọn phòng BPCM, KHÔNG đổi stage
+    if (status === "suitable" && candidate.stage === "cv-new") {
+      if (onOpenBPCMSelector) {
+        onOpenBPCMSelector(candidate)
+      }
       onClose()
-    } else if (status === "suitable") {
+      return
+    }
+    // Các trường hợp khác: chỉ đóng modal
+    if (status === "suitable") {
       onClose()
     }
   }
