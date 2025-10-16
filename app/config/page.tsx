@@ -1,5 +1,6 @@
 "use client"
 
+import { ProtectedRoute } from "@/components/protected-route"
 import { Sidebar } from "@/components/sidebar"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
@@ -126,8 +127,9 @@ export default function ConfigPage() {
   const [modalCriteriaEnabled, setModalCriteriaEnabled] = useState(true)
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar />
+    <ProtectedRoute allowedRoles={['hr']}>
+      <div className="flex h-screen bg-background">
+        <Sidebar />
 
       <main className="flex-1 overflow-hidden">
         <div className="h-full flex flex-col">
@@ -859,6 +861,7 @@ export default function ConfigPage() {
           </div>
         </SheetContent>
       </Sheet>
-    </div>
+      </div>
+    </ProtectedRoute>
   )
 }

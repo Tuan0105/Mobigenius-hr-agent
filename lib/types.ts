@@ -23,7 +23,7 @@ export interface Candidate {
   donViSangLocHS: string
   score: number
   status: "suitable" | "unsuitable"
-  stage: "cv-new" | "screening" | "knowledge-test" | "interview-1" | "interview-2" | "offer" | "hired" | "rejected"
+  stage: "cv-new" | "screening" | "bpcm-pending" | "bpcm-approved" | "bpcm-rejected" | "knowledge-test" | "interview-1" | "interview-2" | "offer" | "hired" | "rejected"
   skills: string[]
   notes: string
   emailSent: boolean
@@ -32,6 +32,20 @@ export interface Candidate {
   createdAt: string
   updatedAt: string
   activities: Activity[]
+  // BPCM Multi-department support
+  bpcmReviews?: BPCMReview[]
+}
+
+export interface BPCMReview {
+  id: string
+  departmentId: string
+  departmentName: string
+  status: "pending" | "approved" | "rejected"
+  submittedAt: string
+  reviewedAt?: string
+  reviewer?: string
+  reason?: string
+  note?: string
 }
 
 export interface Activity {

@@ -1,4 +1,5 @@
 import { Toaster } from "@/components/ui/toaster"
+import { AuthProvider } from "@/lib/auth-context"
 import { Analytics } from "@vercel/analytics/next"
 import type { Metadata } from "next"
 import { Inter, Open_Sans, Roboto } from "next/font/google"
@@ -40,9 +41,11 @@ export default function RootLayout({
   return (
     <html lang="vi" className="light">
       <body className={`${openSans.variable} ${inter.variable} ${roboto.variable} font-open-sans antialiased`}>
-        <Suspense fallback={null}>{children}</Suspense>
-        <Toaster />
-        <Analytics />
+        <AuthProvider>
+          <Suspense fallback={null}>{children}</Suspense>
+          <Toaster />
+          <Analytics />
+        </AuthProvider>
       </body>
     </html>
   )

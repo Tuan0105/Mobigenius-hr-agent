@@ -1,7 +1,10 @@
 "use client"
 
+import { BPCMDepartmentSelector } from "@/components/bpcm-department-selector"
+import { BPCMReviewStatus } from "@/components/bpcm-review-status"
 import { CandidateDetailModal } from "@/components/candidate-detail-modal"
 import { EmailCompositionModal } from "@/components/email-composition-modal"
+import { ProtectedRoute } from "@/components/protected-route"
 import { Sidebar } from "@/components/sidebar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -19,16 +22,20 @@ import type { Candidate } from "@/lib/types"
 import { closestCenter, DndContext, type DragEndEvent, DragOverlay, type DragStartEvent, PointerSensor, useDroppable, useSensor, useSensors } from "@dnd-kit/core"
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { Check, Cloud, Download, Eye, Grid3X3, Loader2, Mail, MoreHorizontal, Plus, Search, Settings, Table } from "lucide-react"
+import { Check, Cloud, Download, Eye, Grid3X3, Loader2, Mail, MoreHorizontal, Plus, Search, Send, Settings, Table } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useCallback, useState } from "react"
 
 const stages = [
   { id: "cv-new", title: "CV Mới" },
-  { id: "knowledge-test", title: "VÒNG THI KIẾN THỨC, KỸ NĂNG" },
-  { id: "interview-1", title: "THAM DỰ PHỎNG VẤN VÒNG 1" },
-  { id: "interview-2", title: "THAM DỰ PHỎNG VẤN VÒNG 2" },
-  { id: "offer", title: "NHÂN SỰ CHÍNH THỨC" },
+  { id: "screening", title: "Đang Sàng Lọc" },
+  { id: "bpcm-pending", title: "Chờ BPCM Duyệt" },
+  { id: "bpcm-approved", title: "BPCM Đã Duyệt" },
+  { id: "bpcm-rejected", title: "BPCM Từ Chối" },
+  { id: "knowledge-test", title: "Vòng Thi Kiến Thức, Kỹ Năng" },
+  { id: "interview-1", title: "Tham dự phỏng vấn vòng 1" },
+  { id: "interview-2", title: "Tham dự phỏng vấn vòng 2" },
+  { id: "offer", title: "Nhân sự chính thức" },
   { id: "hired", title: "Đã Tuyển" },
   { id: "rejected", title: "Từ chối" },
 ]
@@ -108,6 +115,10 @@ function SortableCandidateCard({ candidate, onClick }: SortableCandidateCardProp
         return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
       case "screening":
         return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+      case "bpcm-pending":
+        return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
+      case "bpcm-rejected":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
       case "knowledge-test":
         return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
       case "interview-1":
@@ -155,7 +166,7 @@ function SortableCandidateCard({ candidate, onClick }: SortableCandidateCardProp
               {/* Tag email status ở góc trên phải */}
               {hasEmailForCurrentStage && (
                 <Badge variant="outline" className="text-xs text-green-600 border-green-600 ml-2">
-                  Đã gửi email
+                  {candidate.stage === "offer" ? "Đã gửi hướng dẫn KSK" : "Đã gửi email"}
                 </Badge>
               )}
             </div>
@@ -297,7 +308,7 @@ function CandidateCard({ candidate, onClick }: { candidate: Candidate; onClick: 
               {/* Tag email status ở góc trên phải */}
               {hasEmailForCurrentStage && (
                 <Badge variant="outline" className="text-xs text-green-600 border-green-600 ml-2">
-                  Đã gửi email
+                  {candidate.stage === "offer" ? "Đã gửi hướng dẫn KSK" : "Đã gửi email"}
                 </Badge>
               )}
             </div>
@@ -365,6 +376,7 @@ export default function HRAgentPage() {
     updateCandidateNotes,
     updateCandidateStatus,
     updateCandidateEmailStatus,
+    updateCandidateBPCMReviews,
     getEmailStatusForStage,
     addEmailActivity,
     syncCVsFromEmail,
@@ -378,6 +390,10 @@ export default function HRAgentPage() {
   const [emailType, setEmailType] = useState<"interview" | "offer" | "reject">("interview")
   const [activeId, setActiveId] = useState<string | null>(null)
   const [emailMenuOpenId, setEmailMenuOpenId] = useState<number | null>(null)
+  
+  // BPCM Department Selector states
+  const [bpcmSelectorOpen, setBpcmSelectorOpen] = useState(false)
+  const [bpcmCandidate, setBpcmCandidate] = useState<Candidate | null>(null)
   
   // Function to handle email menu click with auto-scroll
   const handleEmailMenuClick = useCallback((candidateId: number) => {
@@ -403,6 +419,26 @@ export default function HRAgentPage() {
   const [bulkEmailContent, setBulkEmailContent] = useState<string>("")
   // Track which stage the email is intended for (when stage changes right before opening modal)
   const [emailStageOverride, setEmailStageOverride] = useState<string | null>(null)
+  
+  // Map template type to human-readable action label for toasts and menus
+  const templateTypeToLabel = useCallback((templateType: string): string => {
+    switch (templateType) {
+      case "interview-knowledge-test":
+        return "mời thi kỹ năng"
+      case "interview-round-1":
+        return "mời phỏng vấn vòng 1"
+      case "interview-round-2":
+        return "mời phỏng vấn vòng 2"
+      case "offer-congratulations":
+        return "thư mời làm việc"
+      case "offer-health-check":
+        return "hướng dẫn khám sức khỏe"
+      case "reject":
+        return "từ chối"
+      default:
+        return "email"
+    }
+  }, [])
   
   // Helper function to get correct template type based on stage
   const getTemplateTypeFromStage = (stage: string, emailType: "interview" | "offer" | "reject") => {
@@ -728,6 +764,27 @@ export default function HRAgentPage() {
           description: `Đã chuyển ${candidate.hoVaTenDem} ${candidate.ten} sang ${newStageTitle}. Kích hoạt AI chạy sàng lọc tự động.`,
         })
         // Có thể thêm logic gọi AI sàng lọc ở đây
+      } else if ((oldStage === "cv-new" || oldStage === "screening") && targetStage === "bpcm-pending") {
+        // VD6: Kéo từ "CV Mới" hoặc "Đang Sàng Lọc" -> "Chờ BPCM Duyệt"
+        console.log("Triggering BPCM review") // Debug log
+        toast({
+          title: "Gửi CV đến BPCM",
+          description: `Đã chuyển ${candidate.hoVaTenDem} ${candidate.ten} sang ${newStageTitle}. BPCM sẽ nhận được thông báo để xem xét.`,
+        })
+      } else if (oldStage === "bpcm-pending" && targetStage === "bpcm-rejected") {
+        // VD7: Kéo từ "Chờ BPCM Duyệt" -> "BPCM Từ Chối"
+        console.log("BPCM rejected candidate") // Debug log
+        toast({
+          title: "BPCM đã từ chối",
+          description: `BPCM đã từ chối ${candidate.hoVaTenDem} ${candidate.ten}. Ứng viên sẽ không tiếp tục quy trình.`,
+        })
+      } else if (oldStage === "bpcm-pending" && (targetStage === "knowledge-test" || targetStage === "interview-1")) {
+        // VD8: Kéo từ "Chờ BPCM Duyệt" -> "Thi kỹ năng" hoặc "Phỏng vấn vòng 1"
+        console.log("BPCM approved, moving to next stage") // Debug log
+        toast({
+          title: "BPCM đã đồng ý",
+          description: `BPCM đã đồng ý ${candidate.hoVaTenDem} ${candidate.ten}. Chuyển sang ${newStageTitle}.`,
+        })
       } else if (oldStage === "offer" && targetStage === "hired") {
         // VD6: Kéo từ "Chờ Quyết Định" -> "Đã Tuyển"
         console.log("Triggering offer email modal") // Debug log
@@ -770,6 +827,37 @@ export default function HRAgentPage() {
     [candidates, updateCandidateStage, stagesWithCounts],
   )
 
+  // BPCM Department Selection handlers
+  const handleSendToBPCM = useCallback((candidate: Candidate) => {
+    setBpcmCandidate(candidate)
+    setBpcmSelectorOpen(true)
+  }, [])
+
+  const handleBPCMSubmit = useCallback((departments: any[], note: string) => {
+    if (!bpcmCandidate) return
+
+    // Create BPCM reviews for each department
+    const bpcmReviews = departments.map(dept => ({
+      id: `${bpcmCandidate.id}-${dept.id}-${Date.now()}`,
+      departmentId: dept.id,
+      departmentName: dept.name,
+      status: "pending" as const,
+      submittedAt: new Date().toISOString(),
+    }))
+
+    // Update candidate with BPCM reviews using the new function
+    updateCandidateBPCMReviews(bpcmCandidate.id, bpcmReviews, "bpcm-pending")
+
+    // Show success toast
+    toast({
+      title: "Đã gửi CV đến BPCM",
+      description: `CV của ${bpcmCandidate.hoVaTenDem} ${bpcmCandidate.ten} đã được gửi đến ${departments.length} phòng ban để duyệt.`,
+    })
+
+    setBpcmSelectorOpen(false)
+    setBpcmCandidate(null)
+  }, [bpcmCandidate, updateCandidateBPCMReviews])
+
   const handleEmailSend = (emailData: any) => {
     if (emailCandidate) {
       // Record activity with the current email type
@@ -784,17 +872,14 @@ export default function HRAgentPage() {
       const stageForEmail = (emailStageOverride as string) || emailCandidate.stage
       updateCandidateEmailStatus(emailCandidate.id, true, undefined, stageForEmail)
 
-      // Toast by type
-      const message =
-        emailType === "interview"
-          ? "Email mời phỏng vấn đã được gửi"
-          : emailType === "offer"
-          ? "Email mời làm việc đã được gửi"
-          : "Email từ chối đã được gửi"
+      // Toast with specific action label based on template type
+      const stage = (emailStageOverride as string) || emailCandidate.stage
+      const templateType = getTemplateTypeFromStage(stage, emailType)
+      const actionLabel = templateTypeToLabel(templateType)
 
       toast({
-        title: message,
-        description: `Đã gửi email ${emailType === "interview" ? "mời phỏng vấn" : emailType === "offer" ? "mời làm việc" : "từ chối"} cho ${emailCandidate.hoVaTenDem} ${emailCandidate.ten}`,
+        title: `Email ${actionLabel} đã được gửi`,
+        description: `Đã gửi email ${actionLabel} cho ${emailCandidate.hoVaTenDem} ${emailCandidate.ten}`,
       })
 
       // After email is successfully sent, update stage/status accordingly
@@ -1231,10 +1316,11 @@ export default function HRAgentPage() {
   console.log("HRAgentPage rendering with candidates:", candidates.length)
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar />
+    <ProtectedRoute allowedRoles={['hr']}>
+      <div className="flex h-screen bg-background">
+        <Sidebar />
 
-      <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-hidden">
         <div className="h-full flex flex-col">
           {/* Header */}
           <header className="border-b border-border bg-card px-6 py-4">
@@ -1335,6 +1421,9 @@ export default function HRAgentPage() {
                         {selectedCandidatesList[0]?.stage === "rejected" && (
                           <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailReject}>Gửi lại thư từ chối</button>
                         )}
+                        {selectedCandidatesList[0]?.stage === "bpcm-rejected" && (
+                          <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailReject}>Gửi thư từ chối</button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1363,55 +1452,72 @@ export default function HRAgentPage() {
           {/* Filter Bar */}
           <div className="border-b border-border bg-card px-6 py-4">
             <div className="flex items-center gap-4">
-              <Select value={filters.position} onValueChange={handlePositionFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Vị trí tuyển dụng" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả</SelectItem>
-                  {Array.from(POSITION_NAMES).map((name) => (
-                    <SelectItem key={name} value={name}>{name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-muted-foreground">Vị trí tuyển dụng</label>
+                <Select value={filters.position} onValueChange={handlePositionFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Chọn vị trí" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    {Array.from(POSITION_NAMES).map((name) => (
+                      <SelectItem key={name} value={name}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <Select value={filters.stage} onValueChange={handleStageFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả</SelectItem>
-                  <SelectItem value="cv-new">CV Mới</SelectItem>
-                  <SelectItem value="knowledge-test">Vòng Thi Kiến Thức, Kỹ Năng</SelectItem>
-                  <SelectItem value="interview-1">Tham Dự Phỏng Vấn Vòng 1</SelectItem>
-                  <SelectItem value="interview-2">Tham Dự Phỏng Vấn Vòng 2</SelectItem>
-                  <SelectItem value="hired">Đã Tuyển</SelectItem>
-                  <SelectItem value="rejected">Từ Chối</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-muted-foreground">Trạng thái</label>
+                <Select value={filters.stage} onValueChange={handleStageFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Chọn trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    <SelectItem value="cv-new">CV Mới</SelectItem>
+                    <SelectItem value="screening">Đang Sàng Lọc</SelectItem>
+                    <SelectItem value="bpcm-pending">Chờ BPCM Duyệt</SelectItem>
+                    <SelectItem value="bpcm-approved">BPCM Đã Duyệt</SelectItem>
+                    <SelectItem value="bpcm-rejected">BPCM Từ Chối</SelectItem>
+                    <SelectItem value="knowledge-test">Vòng Thi Kiến Thức, Kỹ Năng</SelectItem>
+                    <SelectItem value="interview-1">Tham Dự Phỏng Vấn Vòng 1</SelectItem>
+                    <SelectItem value="interview-2">Tham Dự Phỏng Vấn Vòng 2</SelectItem>
+                    <SelectItem value="offer">Nhân Sự Chính Thức</SelectItem>
+                    <SelectItem value="hired">Đã Tuyển</SelectItem>
+                    <SelectItem value="rejected">Từ Chối</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <Select value={filters.status} onValueChange={handleStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Kết quả sàng lọc" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả</SelectItem>
-                  <SelectItem value="suitable">Phù hợp</SelectItem>
-                  <SelectItem value="unsuitable">Không phù hợp</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-muted-foreground">Kết quả sàng lọc</label>
+                <Select value={filters.status} onValueChange={handleStatusFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Chọn kết quả" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    <SelectItem value="suitable">Phù hợp</SelectItem>
+                    <SelectItem value="unsuitable">Không phù hợp</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Tìm kiếm ứng viên theo tên, email, kỹ năng..."
-                  value={filters.search}
-                  onChange={(e) => {
-                    // Real-time search với debounce
-                    setFilters({ ...filters, search: e.target.value })
-                  }}
-                  className="pl-9"
-                />
+              <div className="flex flex-col gap-1 flex-1 max-w-sm">
+                <label className="text-sm font-medium text-muted-foreground">Tìm kiếm</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Tìm kiếm ứng viên theo tên, email, kỹ năng..."
+                    value={filters.search}
+                    onChange={(e) => {
+                      // Real-time search với debounce
+                      setFilters({ ...filters, search: e.target.value })
+                    }}
+                    className="pl-9"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1496,6 +1602,7 @@ export default function HRAgentPage() {
                         </TableHead>
                         <TableHead>Kết quả AI</TableHead>
                         <TableHead>Trạng thái</TableHead>
+                        <TableHead>Kết quả duyệt</TableHead>
                         <TableHead className="w-32">Hành động</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1533,6 +1640,8 @@ export default function HRAgentPage() {
                               const stage = candidate.stage
                               const cls = stage === "cv-new" ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
                                 : stage === "screening" ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                                : stage === "bpcm-pending" ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
+                                : stage === "bpcm-rejected" ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                                 : stage === "knowledge-test" ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
                                 : stage === "interview-1" ? "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300"
                                 : stage === "interview-2" ? "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300"
@@ -1541,11 +1650,23 @@ export default function HRAgentPage() {
                                 : stage === "rejected" ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                                 : "bg-muted text-foreground"
                               return (
-                                <Badge className={`text-xs ${cls}`}>
-                                  {stages.find(s => s.id === candidate.stage)?.title || candidate.stage}
-                                </Badge>
+                                <div className="flex items-center gap-1">
+                                  <Badge className={`text-xs ${cls}`}>
+                                    {stages.find(s => s.id === candidate.stage)?.title || candidate.stage}
+                                  </Badge>
+                                  {candidate.stage === "offer" && candidate.emailStatusByStage?.["offer"]?.sent && (
+                                    <Badge variant="outline" className="text-[10px] text-green-700 border-green-600">Đã gửi KSK</Badge>
+                                  )}
+                                </div>
                               )
                             })()}
+                          </TableCell>
+                          <TableCell>
+                            {candidate.bpcmReviews && candidate.bpcmReviews.length > 0 ? (
+                              <BPCMReviewStatus reviews={candidate.bpcmReviews} />
+                            ) : (
+                              <span className="text-sm text-muted-foreground">-</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
@@ -1556,6 +1677,16 @@ export default function HRAgentPage() {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
+                              {(candidate.stage === "cv-new" || candidate.stage === "screening") && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleSendToBPCM(candidate)}
+                                  title="Gửi đi duyệt"
+                                >
+                                  <Send className="h-4 w-4" />
+                                </Button>
+                              )}
                               <div className="relative">
                                 <Button
                                   variant="ghost"
@@ -1587,15 +1718,27 @@ export default function HRAgentPage() {
                                     {/* Context-aware email actions by stage */}
                                   {candidate.stage === "cv-new" && (
                                     <>
-                                      <EmailMenuItem candidate={candidate} targetStage="knowledge-test" baseLabel="mời thi kỹ năng" type="interview" />
-                                      <EmailMenuItem candidate={candidate} targetStage="interview-1" baseLabel="mời phỏng vấn vòng 1" type="interview" />
                                       <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
                                     </>
                                   )}
                                   {candidate.stage === "screening" && (
                                     <>
-                                      <EmailMenuItem candidate={candidate} targetStage="knowledge-test" baseLabel="mời thi kỹ năng" type="interview" />
+                                      <EmailMenuItem candidate={candidate} targetStage="bpcm-pending" baseLabel="gửi BPCM duyệt" type="interview" />
+                                      <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                    </>
+                                  )}
+                                  {candidate.stage === "bpcm-pending" && (
+                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">Chờ phản hồi từ BPCM</div>
+                                  )}
+                                  {candidate.stage === "bpcm-approved" && (
+                                    <>
+                                      <EmailMenuItem candidate={candidate} targetStage="knowledge-test" baseLabel="mời thi kiến thức, kỹ năng" type="interview" />
                                       <EmailMenuItem candidate={candidate} targetStage="interview-1" baseLabel="mời phỏng vấn vòng 1" type="interview" />
+                                      <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                    </>
+                                  )}
+                                  {candidate.stage === "bpcm-rejected" && (
+                                    <>
                                       <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
                                     </>
                                   )}
@@ -1728,6 +1871,17 @@ export default function HRAgentPage() {
         />
       )}
 
+      {/* BPCM Department Selector Modal */}
+      {bpcmCandidate && (
+        <BPCMDepartmentSelector
+          isOpen={bpcmSelectorOpen}
+          onClose={() => setBpcmSelectorOpen(false)}
+          onSubmit={handleBPCMSubmit}
+          candidateName={`${bpcmCandidate.hoVaTenDem} ${bpcmCandidate.ten}`}
+          candidatePosition={bpcmCandidate.viTri}
+        />
+      )}
+
       {/* Bulk Email Compose Modal */}
       <EmailCompositionModal
         isOpen={bulkEmailComposeOpen}
@@ -1754,6 +1908,7 @@ export default function HRAgentPage() {
         bulkContent={bulkEmailContent}
         bulkTemplate={bulkEmailTemplate}
       />
-    </div>
+      </div>
+    </ProtectedRoute>
   )
 }

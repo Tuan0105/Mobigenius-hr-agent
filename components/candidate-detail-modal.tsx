@@ -297,10 +297,24 @@ export function CandidateDetailModal({
                       <Briefcase className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">{candidate.kinhNghiemLamViec} năm kinh nghiệm</span>
                       </div>
-                      {candidate.lyDoLoai && (
+                      {candidate.lyDoLoai && candidate.stage !== "bpcm-rejected" && (
                         <div className="p-3 bg-destructive/10 rounded-lg">
                           <p className="text-sm font-medium text-destructive">Lý do loại:</p>
                           <p className="text-sm text-destructive">{candidate.lyDoLoai}</p>
+                        </div>
+                      )}
+                      {candidate.stage === "bpcm-rejected" && candidate.lyDoLoai && (
+                        <div className="p-3 bg-destructive/10 rounded-lg">
+                          <p className="text-sm font-medium text-orange-800">Lý do BPCM từ chối:</p>
+                          <p className="text-sm text-orange-700">{candidate.lyDoLoai}</p>
+                        </div>
+                      )}
+                      {candidate.activities?.find(activity => activity.action === "BPCM đồng ý ứng viên") && (
+                        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                          <p className="text-sm font-medium text-green-800">Lý do BPCM đồng ý:</p>
+                          <p className="text-sm text-green-700">
+                            {candidate.activities.find(activity => activity.action === "BPCM đồng ý ứng viên")?.details?.reason || "BPCM đã đồng ý ứng viên"}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -384,7 +398,7 @@ export function CandidateDetailModal({
                           <span className="font-medium">{candidate.chuyenNganh}</span>
                         </div>
                       </div>
-                      {/* Hàng 5: Đơn vị ứng tuyển */}
+                      {/* Hàng 5: Đơn vị ứng tuyển, Hình thức, Khu vực */}
                       <div className="grid grid-cols-3 gap-6">
                         <div className="flex flex-col space-y-1">
                           <span className="text-muted-foreground text-xs">Đơn vị ứng tuyển</span>
@@ -399,20 +413,16 @@ export function CandidateDetailModal({
                           <span className="font-medium">{candidate.khuVuc}</span>
                         </div>
                       </div>
-                      <div className="grid grid-cols-6 gap-8">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Hình thức:</span>
-                          <span className="font-medium">{candidate.hinhThuc}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Kinh nghiệm:</span>
+                      {/* Hàng 6: Kinh nghiệm, Đơn vị sàng lọc */}
+                      <div className="grid grid-cols-3 gap-6">
+                        <div className="flex flex-col space-y-1">
+                          <span className="text-muted-foreground text-xs">Kinh nghiệm</span>
                           <span className="font-medium">{candidate.kinhNghiemLamViec} năm</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Đơn vị sàng lọc:</span>
+                        <div className="flex flex-col space-y-1">
+                          <span className="text-muted-foreground text-xs">Đơn vị sàng lọc</span>
                           <span className="font-medium">{candidate.donViSangLocHS}</span>
                         </div>
-                        <div></div>
                         <div></div>
                       </div>
                     </div>
@@ -572,6 +582,23 @@ export function CandidateDetailModal({
                           >
                             <Mail className="h-4 w-4" />
                             {candidate.emailSent ? "Gửi lại email từ chối" : "Gửi email từ chối"}
+                          </Button>
+                        </div>
+                      )}
+
+                      {candidate.stage === "bpcm-rejected" && (
+                        <div className="space-y-2">
+                          <Button className="w-full gap-2 bg-transparent" variant="outline">
+                            <UserX className="h-4 w-4" />
+                            BPCM đã từ chối
+                          </Button>
+                          <Button
+                            className="w-full gap-2"
+                            variant="outline"
+                            onClick={() => handleEmailAction("reject")}
+                          >
+                            <Mail className="h-4 w-4" />
+                            Gửi email từ chối
                           </Button>
                         </div>
                       )}

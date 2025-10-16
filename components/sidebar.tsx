@@ -1,8 +1,9 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
-import { BarChart3, Brain, ChevronDown, ChevronRight, FileText, Users } from "lucide-react"
+import { BarChart3, Brain, ChevronDown, ChevronRight, FileText, LogOut, Users } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
 
@@ -13,6 +14,7 @@ interface SidebarProps {
 export function Sidebar({ className }: SidebarProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const { logout, user } = useAuth()
   const [isAgenticExpanded, setIsAgenticExpanded] = useState(true)
   const [isManagementExpanded, setIsManagementExpanded] = useState(false)
   const [isReportsExpanded, setIsReportsExpanded] = useState(false)
@@ -156,9 +158,18 @@ export function Sidebar({ className }: SidebarProps) {
             T
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground">Tuấn</p>
-            <p className="text-xs text-sidebar-foreground/60 truncate">tuấn@mobifone.vn</p>
+            <p className="text-sm font-medium text-sidebar-foreground">{user?.username || "HR Agent"}</p>
+            <p className="text-xs text-sidebar-foreground/60 truncate">{user?.email || "hragent@mobifone.vn"}</p>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            onClick={logout}
+            title="Đăng xuất"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>
