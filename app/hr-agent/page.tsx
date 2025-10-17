@@ -12,19 +12,20 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TableBody, TableCell, Table as TableComponent, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { toast } from "@/hooks/use-toast"
 import { POSITION_NAMES, useConfigData } from "@/lib/config-store"
 import { useHRData } from "@/lib/data-store"
-import type { Candidate } from "@/lib/types"
+import type { BPCMReview, Candidate } from "@/lib/types"
 import { closestCenter, DndContext, type DragEndEvent, DragOverlay, type DragStartEvent, PointerSensor, useDroppable, useSensor, useSensors } from "@dnd-kit/core"
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { Check, Cloud, Download, Eye, Grid3X3, Loader2, Mail, MoreHorizontal, Search, Send, Settings, Table } from "lucide-react"
+import { Bell, Check, Cloud, Download, Eye, FileText, Loader2, Mail, MoreHorizontal, Search, Send, Settings, XCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 const stages = [
   { id: "cv-new", title: "CV Mới" },
@@ -633,7 +634,7 @@ export default function HRAgentPage() {
         return
       }
 
-      const candidateId = Number.parseInt(active.id as string)
+      const candidateId = parseInt(active.id as string, 10)
 
       // Determine target stage id.
       let targetStage: Candidate["stage"] | undefined
@@ -1278,7 +1279,7 @@ export default function HRAgentPage() {
       if (type === "reject") {
         setEmailStageOverride("rejected")
       } else if (type === "offer") {
-        // For offer emails, use targetStage to determine the correct stage
+        // For offer emails, track by target key (e.g., offer-congratulations, offer-health-check)
         setEmailStageOverride(targetStage)
       } else if (type === "interview") {
         setEmailStageOverride(targetStage)
@@ -1314,6 +1315,15 @@ export default function HRAgentPage() {
   // Debug log to check if component is rendering
   console.log("HRAgentPage rendering with candidates:", candidates.length)
 
+  // Keep selectedCandidate synced with latest store updates (stage/status changes)
+  useEffect(() => {
+    if (!selectedCandidate) return
+    const latest = candidates.find(c => c.id === selectedCandidate.id)
+    if (latest && (latest.stage !== selectedCandidate.stage || latest.status !== selectedCandidate.status || latest.updatedAt !== selectedCandidate.updatedAt)) {
+      setSelectedCandidate(latest)
+    }
+  }, [candidates, selectedCandidate])
+
   return (
     <ProtectedRoute allowedRoles={['hr']}>
       <div className="flex h-screen bg-background">
@@ -1330,7 +1340,7 @@ export default function HRAgentPage() {
               </div>
               <div className="flex items-center gap-3">
                 {/* View Toggle Buttons */}
-                <div className="flex items-center border rounded-lg p-1">
+                {/* <div className="flex items-center border rounded-lg p-1">
                   <Button
                     variant={viewMode === "kanban" ? "default" : "ghost"}
                     size="sm"
@@ -1349,7 +1359,7 @@ export default function HRAgentPage() {
                     <Table className="h-4 w-4" />
                     Table
                   </Button>
-                </div>
+                </div> */}
 
                 {/* Primary Actions */}
                 <Button 
@@ -1436,6 +1446,74 @@ export default function HRAgentPage() {
                   <Download className="h-4 w-4" />
                   Tải tất cả
                 </Button>
+                {/* Notifications */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <div className="relative">
+                      <Button variant="outline" size="icon" className="bg-transparent hover:bg-accent">
+                        <Bell className="h-4 w-4" />
+                      </Button>
+                      {(() => {
+                        const newCVs = candidates.filter(c => c.stage === 'cv-new').length
+                        let bpcmApproved = 0, bpcmRejected = 0
+                        candidates.forEach(c => {
+                          (c.bpcmReviews || []).forEach((r: BPCMReview) => {
+                            if (r.status === 'approved') bpcmApproved++
+                            if (r.status === 'rejected') bpcmRejected++
+                          })
+                        })
+                        const total = newCVs + bpcmApproved + bpcmRejected
+                        return total > 0 ? (
+                          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none">
+                            {total}
+                          </span>
+                        ) : null
+                      })()}
+                    </div>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 max-h-80 overflow-y-auto p-0">
+                    {function renderNotifications() {
+                      const notifications: {id:number; name:string; text:string; kind:'cv'|'approved'|'rejected'}[] = []
+                      candidates.forEach((c: Candidate) => {
+                        if (c.stage === 'cv-new') notifications.push({ id: c.id, name: `${c.hoVaTenDem} ${c.ten}`, text: 'CV mới', kind:'cv'})  
+                        ;(c.bpcmReviews||[]).forEach((r: BPCMReview) => {
+                          if (r.status === 'approved') notifications.push({ id: c.id, name: `${c.hoVaTenDem} ${c.ten}`, text: `BPCM đồng ý (${r.departmentName})`, kind:'approved'})
+                          if (r.status === 'rejected') notifications.push({ id: c.id, name: `${c.hoVaTenDem} ${c.ten}`, text: `BPCM từ chối (${r.departmentName})`, kind:'rejected'})
+                        })
+                      })
+                      if (notifications.length === 0) return <div className="p-3 text-sm text-muted-foreground">Chưa có thông báo</div>
+                      const handleJump = (id:number) => {
+                        const el = document.getElementById(`row-${id}`)
+                        if (el) {
+                          el.scrollIntoView({ behavior:'smooth', block:'center'})
+                          el.classList.add('ring', 'ring-primary')
+                          setTimeout(()=> el.classList.remove('ring','ring-primary'), 1500)
+                        }
+                      }
+                      return (
+                        <div className="divide-y">
+                          {notifications.slice(0, 30).map(it => {
+                            const Icon = it.kind === 'cv' ? FileText : it.kind === 'approved' ? Check : XCircle
+                            const iconClass = it.kind === 'approved' ? 'text-green-600' : it.kind === 'rejected' ? 'text-red-600' : 'text-blue-600'
+                            return (
+                              <button
+                                key={`${it.kind}-${it.id}`}
+                                onClick={()=>handleJump(it.id)}
+                                className="w-full flex items-start gap-3 px-3 py-2 hover:bg-muted/60"
+                              >
+                                <Icon className={`h-4 w-4 mt-0.5 ${iconClass}`} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium text-foreground truncate">{it.name}</div>
+                                  <div className="text-xs text-muted-foreground truncate">{it.text}</div>
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )
+                    }()}
+                  </PopoverContent>
+                </Popover>
                 <Button 
                   variant="outline" 
                   size="icon" 
@@ -1606,7 +1684,7 @@ export default function HRAgentPage() {
                     </TableHeader>
                     <TableBody>
                       {paginatedCandidates.map((candidate, index) => (
-                        <TableRow key={candidate.id} className="hover:bg-muted/50">
+                        <TableRow key={candidate.id} id={`row-${candidate.id}`} className="hover:bg-muted/50">
                           <TableCell>
                             <Checkbox
                               checked={selectedCandidates.has(candidate.id)}
@@ -1754,14 +1832,14 @@ export default function HRAgentPage() {
                                   )}
                                   {candidate.stage === "interview-2" && (
                                     <>
-                                      <EmailMenuItem candidate={candidate} targetStage="hired" baseLabel="thư mời làm việc" type="offer" />
+                                      <EmailMenuItem candidate={candidate} targetStage="offer-congratulations" baseLabel="thư mời làm việc" type="offer" />
                                       <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
                                     </>
                                   )}
                                   {candidate.stage === "offer" && (
                                     <>
-                                      <EmailMenuItem candidate={candidate} targetStage="hired" baseLabel="thư mời làm việc" type="offer" />
-                                      <EmailMenuItem candidate={candidate} targetStage="offer" baseLabel="hướng dẫn khám sức khỏe" type="offer" />
+                                      <EmailMenuItem candidate={candidate} targetStage="offer-congratulations" baseLabel="thư mời làm việc" type="offer" />
+                                      <EmailMenuItem candidate={candidate} targetStage="offer-health-check" baseLabel="hướng dẫn khám sức khỏe" type="offer" />
                                     </>
                                   )}
                                   {candidate.stage === "hired" && (
@@ -1842,6 +1920,12 @@ export default function HRAgentPage() {
           onOpenBPCMSelector={(c) => {
             setBpcmCandidate(c)
             setBpcmSelectorOpen(true)
+          }}
+          onEmailStatusUpdate={(id, key) => {
+            // map key to stage buckets for status tracking
+            let stageKey = key
+            // Persist per action in emailStatusByStage using existing updater
+            updateCandidateEmailStatus(id, true, undefined, stageKey)
           }}
         />
       )}

@@ -18,33 +18,30 @@ import { Check, Eye, LogOut, Search, X } from "lucide-react"
 import { useState } from "react"
 
 export default function BPCMPage() {
-  const { candidates, updateCandidateStage } = useHRData()
+  const { candidates, updateCandidateBPCMReviews, addActivity } = useHRData()
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showActionDialog, setShowActionDialog] = useState(false)
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null)
   const [reason, setReason] = useState("")
-  const [searchTerm, setSearchTerm] = useState("")
-  const [positionFilter, setPositionFilter] = useState("all")
+
+  // Local decisions: keep CVs in list but show what we chose
+  const [decisions, setDecisions] = useState<Record<number, 'approved' | 'rejected'>>({})
 
   // Filter candidates that are pending BPCM review with search and position filter
+  const [searchTerm, setSearchTerm] = useState("")
+  const [positionFilter, setPositionFilter] = useState("all")
   const pendingCandidates = candidates.filter(candidate => {
     if (candidate.stage !== "bpcm-pending") return false
-    
-    // Search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()
       const fullName = `${candidate.hoVaTenDem} ${candidate.ten}`.toLowerCase()
       if (!fullName.includes(searchLower)) return false
     }
-    
-    // Position filter
     if (positionFilter !== "all" && candidate.viTri !== positionFilter) return false
-    
     return true
   })
 
-  // Get unique positions for filter
   const uniquePositions = Array.from(new Set(
     candidates
       .filter(c => c.stage === "bpcm-pending")
@@ -56,50 +53,51 @@ export default function BPCMPage() {
     setShowDetailModal(true)
   }
 
-  const handleAction = (candidate: Candidate, type: 'approve' | 'reject') => {
+  const openActionDialog = (candidate: Candidate, type: 'approve' | 'reject') => {
     setSelectedCandidate(candidate)
     setActionType(type)
     setShowActionDialog(true)
   }
 
   const handleSubmitAction = () => {
-    console.log('handleSubmitAction called', { selectedCandidate, actionType, reason })
-    
-    if (!selectedCandidate || !actionType) {
-      console.log('Missing required data', { selectedCandidate, actionType })
-      return
+    if (!selectedCandidate || !actionType) return
+
+    // Record decision locally and keep in the list
+    setDecisions(prev => ({ ...prev, [selectedCandidate.id]: actionType === 'approve' ? 'approved' : 'rejected' }))
+
+    // Sync decision to HR data (update bpcmReviews, keep stage as bpcm-pending)
+    const review = {
+      id: `${selectedCandidate.id}-bpcm-local-${Date.now()}`,
+      departmentId: "bigdata",
+      departmentName: "P. Big Data",
+      status: actionType === 'approve' ? 'approved' : 'rejected' as const,
+      submittedAt: selectedCandidate.updatedAt,
+      reviewedAt: new Date().toISOString(),
+      reviewer: "BPCM Big Data",
+      reason: reason || (actionType === 'approve' ? 'Đồng ý sau khi xem xét hồ sơ' : 'Không phù hợp với yêu cầu chuyên môn'),
     }
+    updateCandidateBPCMReviews(selectedCandidate.id, [review], 'bpcm-pending')
 
-    const newStage = actionType === 'approve' ? 'knowledge-test' : 'bpcm-rejected'
-    const rejectionReason = actionType === 'reject' ? reason : ''
-    
-    console.log('Updating candidate', { candidateId: selectedCandidate.id, newStage, rejectionReason })
+    // Log activity for HR
+    addActivity(
+      selectedCandidate.id,
+      actionType === 'approve' ? 'BPCM đồng ý ứng viên' : 'BPCM từ chối ứng viên',
+      'BPCM Big Data',
+      { department: 'P. Big Data', reason }
+    )
 
-    // Update candidate stage
-    updateCandidateStage(selectedCandidate.id, newStage)
-    
-    // Note: Activity will be added automatically by the system
-    // The stage change itself indicates the BPCM action
-
-    // Show success message
     toast({
       title: actionType === 'approve' ? 'Đã đồng ý ứng viên' : 'Đã từ chối ứng viên',
-      description: actionType === 'approve' 
-        ? 'Ứng viên đã được chuyển sang giai đoạn tiếp theo'
-        : 'Ứng viên đã bị từ chối',
+      description: `${selectedCandidate.hoVaTenDem} ${selectedCandidate.ten} • ${actionType === 'approve' ? 'Đồng ý' : 'Từ chối'}`,
     })
 
-    // Close dialogs
     setShowActionDialog(false)
-    setShowDetailModal(false)
-    setSelectedCandidate(null)
     setActionType(null)
     setReason("")
   }
 
   const handleLogout = () => {
-    // This will be handled by the auth context
-    window.location.href = '/login'
+    window.location.href = "/login"
   }
 
   return (
@@ -183,6 +181,7 @@ export default function BPCMPage() {
                       <TableHead>Kinh nghiệm</TableHead>
                       <TableHead>Kỹ năng chính</TableHead>
                       <TableHead>Điểm AI</TableHead>
+                      <TableHead>Kết quả của tôi</TableHead>
                       <TableHead>Ngày HR gửi</TableHead>
                       <TableHead className="text-right">Hành động</TableHead>
                     </TableRow>
@@ -223,10 +222,18 @@ export default function BPCMPage() {
                             <Badge variant={candidate.score >= 80 ? "default" : candidate.score >= 60 ? "secondary" : "destructive"}>
                               {candidate.score}/100
                             </Badge>
-                            <Badge variant={candidate.status === "suitable" ? "default" : "destructive"} className="text-xs">
-                              {candidate.status === "suitable" ? "Phù hợp" : "Không phù hợp"}
-                            </Badge>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {decisions[candidate.id] ? (
+                            decisions[candidate.id] === 'approved' ? (
+                              <Badge variant="default" className="bg-green-600 text-white border-green-600">Đã đồng ý</Badge>
+                            ) : (
+                              <Badge variant="destructive">Đã từ chối</Badge>
+                            )
+                          ) : (
+                            <Badge variant="secondary">Chưa chọn</Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           {new Date(candidate.updatedAt).toLocaleDateString('vi-VN')}
@@ -245,8 +252,9 @@ export default function BPCMPage() {
                             <Button
                               variant="default"
                               size="sm"
-                              onClick={() => handleAction(candidate, 'approve')}
+                              onClick={() => openActionDialog(candidate, 'approve')}
                               className="gap-1 bg-green-600 hover:bg-green-700"
+                              disabled={!!decisions[candidate.id]}
                             >
                               <Check className="h-4 w-4" />
                               Đồng ý
@@ -254,8 +262,9 @@ export default function BPCMPage() {
                             <Button
                               variant="destructive"
                               size="sm"
-                              onClick={() => handleAction(candidate, 'reject')}
+                              onClick={() => openActionDialog(candidate, 'reject')}
                               className="gap-1"
+                              disabled={!!decisions[candidate.id]}
                             >
                               <X className="h-4 w-4" />
                               Từ chối
@@ -280,7 +289,13 @@ export default function BPCMPage() {
               setShowDetailModal(false)
               setSelectedCandidate(null)
             }}
-            onEmailAction={() => {}}
+            onSendEmail={() => {}}
+            onOpenBPCMSelector={() => {}}
+            allCandidates={candidates}
+            onNotesUpdate={() => {}}
+            onStageUpdate={() => {}}
+            onBPCMApprove={!decisions[selectedCandidate.id] ? () => openActionDialog(selectedCandidate!, 'approve') : undefined}
+            onBPCMReject={!decisions[selectedCandidate.id] ? () => openActionDialog(selectedCandidate!, 'reject') : undefined}
           />
         )}
 
@@ -298,7 +313,6 @@ export default function BPCMPage() {
                 }
               </DialogDescription>
             </DialogHeader>
-            
             {selectedCandidate && (
               <div className="py-4">
                 <p className="font-medium">
@@ -309,7 +323,6 @@ export default function BPCMPage() {
                 </p>
               </div>
             )}
-
             <div className="space-y-4">
               <div>
                 <Label htmlFor="reason">
@@ -327,25 +340,9 @@ export default function BPCMPage() {
                 />
               </div>
             </div>
-
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowActionDialog(false)
-                  setActionType(null)
-                  setReason("")
-                }}
-              >
-                Hủy
-              </Button>
-              <Button
-                onClick={handleSubmitAction}
-                className={actionType === 'approve' 
-                  ? 'bg-green-600 hover:bg-green-700' 
-                  : 'bg-red-600 hover:bg-red-700'
-                }
-              >
+              <Button variant="outline" onClick={() => setShowActionDialog(false)}>Hủy</Button>
+              <Button onClick={handleSubmitAction} className={actionType === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}>
                 {actionType === 'approve' ? 'Đồng ý' : 'Từ chối'}
               </Button>
             </DialogFooter>

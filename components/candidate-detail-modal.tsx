@@ -34,6 +34,11 @@ interface CandidateDetailModalProps {
   allCandidates?: Candidate[]
   // Trigger BPCM department selector from parent
   onOpenBPCMSelector?: (candidate: Candidate) => void
+  // Optional BPCM decision callbacks (used in BPCM page)
+  onBPCMApprove?: () => void
+  onBPCMReject?: () => void
+  // Update per-action email status so email icon menu shows "Gửi lại ..."
+  onEmailStatusUpdate?: (candidateId: number, key: string) => void
 }
 
 export function CandidateDetailModal({
@@ -46,10 +51,14 @@ export function CandidateDetailModal({
   onStageUpdate,
   allCandidates = [],
   onOpenBPCMSelector,
+  onBPCMApprove,
+  onBPCMReject,
+  onEmailStatusUpdate,
 }: CandidateDetailModalProps) {
   const [notes, setNotes] = useState(candidate.notes || "")
   const [emailModalOpen, setEmailModalOpen] = useState(false)
   const [emailType, setEmailType] = useState<"interview" | "offer" | "reject">("interview")
+  const [templateType, setTemplateType] = useState<string | undefined>(undefined)
 
   // Update notes when candidate changes
   useEffect(() => {
@@ -146,14 +155,56 @@ export function CandidateDetailModal({
     { criteria: "Có kinh nghiệm TypeScript", passed: candidate.skills.includes("TypeScript") },
   ]
 
-  const handleEmailAction = (type: "interview" | "offer" | "reject") => {
+  const handleEmailAction = (type: "interview" | "offer" | "reject", tpl?: string) => {
     setEmailType(type)
+    setTemplateType(tpl)
     setEmailModalOpen(true)
   }
 
   const handleEmailSend = (emailData: any) => {
     console.log("Email sent:", emailData)
     onSendEmail(emailType)
+
+    // Determine next stage based on current stage and templateType
+    if (onStageUpdate) {
+      const currentStage = candidate.stage
+      const tpl = templateType
+      let nextStage: Candidate["stage"] | undefined
+
+      if (currentStage === "bpcm-approved") {
+        if (tpl === "interview-knowledge-test") nextStage = "knowledge-test"
+        else if (tpl === "interview-round-1") nextStage = "interview-1"
+        else if (emailType === "reject" || tpl === "reject") nextStage = "rejected"
+      } else if (currentStage === "knowledge-test") {
+        if (tpl === "interview-round-1") nextStage = "interview-1"
+      } else if (currentStage === "interview-1") {
+        if (tpl === "interview-round-2") nextStage = "interview-2"
+      } else if (currentStage === "interview-2") {
+        if (tpl === "offer-congratulations" || emailType === "offer") nextStage = "offer"
+      } else if (currentStage === "offer") {
+        // Stay in offer; emails can be resent (congrats) or send health-check
+        nextStage = undefined
+      }
+
+      if (nextStage) {
+        onStageUpdate(candidate.id, nextStage)
+      }
+    }
+
+    // Mark specific email action as sent (for menu labels)
+    if (onEmailStatusUpdate) {
+      const key = templateType || emailType
+      // For offer flows ensure we use explicit keys
+      if (key === "offer-congratulations" || key === "offer-health-check") {
+        onEmailStatusUpdate(candidate.id, key)
+      }
+      if (key === "interview-knowledge-test" || key === "interview-round-1" || key === "interview-round-2" || key === "reject") {
+        onEmailStatusUpdate(candidate.id, key)
+      }
+    }
+
+    // Reset template hint for next open
+    setTemplateType(undefined)
   }
 
   const handleNotesBlur = () => {
@@ -481,20 +532,34 @@ export function CandidateDetailModal({
                         </>
                       )}
 
+                      {/* BPCM actions in detail view */}
+                      {candidate.stage === "bpcm-pending" && (onBPCMApprove || onBPCMReject) && (
+                        <>
+                          <Button className="w-full gap-2 bg-green-600 hover:bg-green-700" onClick={onBPCMApprove}>
+                            <UserCheck className="h-4 w-4" />
+                            Đồng ý
+                          </Button>
+                          <Button className="w-full gap-2" variant="destructive" onClick={onBPCMReject}>
+                            <UserX className="h-4 w-4" />
+                            Từ chối
+                          </Button>
+                        </>
+                      )}
+
                       {candidate.stage === "screening" && candidate.status === "suitable" && (
                         <>
-                          <Button className="w-full gap-2" onClick={() => handleEmailAction("interview")}>
+                          <Button className="w-full gap-2" onClick={() => handleEmailAction("interview", "interview-knowledge-test")}>
                             <UserCheck className="h-4 w-4" />
                             Mời tham gia vòng thi kỹ năng
                           </Button>
-                          <Button className="w-full gap-2" onClick={() => handleEmailAction("interview")}>
+                          <Button className="w-full gap-2" onClick={() => handleEmailAction("interview", "interview-round-1")}>
                             <UserCheck className="h-4 w-4" />
                             Mời tham gia phỏng vấn vòng 1
                           </Button>
                           <Button
                             className="w-full gap-2"
                             variant="destructive"
-                            onClick={() => handleEmailAction("reject")}
+                            onClick={() => handleEmailAction("reject", "reject")}
                           >
                             <UserX className="h-4 w-4" />
                             Từ chối
@@ -502,16 +567,37 @@ export function CandidateDetailModal({
                         </>
                       )}
 
+                      {candidate.stage === "bpcm-approved" && (
+                        <>
+                          <Button className="w-full gap-2" onClick={() => handleEmailAction("interview", "interview-knowledge-test")}>
+                            <UserCheck className="h-4 w-4" />
+                            Mời làm bài thi kiến thức, kỹ năng
+                          </Button>
+                          <Button className="w-full gap-2" onClick={() => handleEmailAction("interview", "interview-round-1")}>
+                            <UserCheck className="h-4 w-4" />
+                            Mời phỏng vấn vòng 1
+                          </Button>
+                          <Button
+                            className="w-full gap-2"
+                            variant="destructive"
+                            onClick={() => handleEmailAction("reject", "reject")}
+                          >
+                            <UserX className="h-4 w-4" />
+                            Gửi thư từ chối
+                          </Button>
+                        </>
+                      )}
+
                       {candidate.stage === "knowledge-test" && (
                         <>
-                          <Button className="w-full gap-2" onClick={() => handleEmailAction("interview")}>
+                          <Button className="w-full gap-2" onClick={() => handleEmailAction("interview", "interview-round-1")}>
                             <UserCheck className="h-4 w-4" />
                             Mời tham gia phỏng vấn vòng 1
                           </Button>
                           <Button
                             className="w-full gap-2"
                             variant="destructive"
-                            onClick={() => handleEmailAction("reject")}
+                            onClick={() => handleEmailAction("reject", "reject")}
                           >
                             <UserX className="h-4 w-4" />
                             Từ chối
@@ -521,14 +607,14 @@ export function CandidateDetailModal({
 
                       {candidate.stage === "interview-1" && (
                         <>
-                          <Button className="w-full gap-2" onClick={() => handleEmailAction("interview")}>
+                          <Button className="w-full gap-2" onClick={() => handleEmailAction("interview", "interview-round-2")}>
                             <UserCheck className="h-4 w-4" />
                             Mời tham gia phỏng vấn vòng 2
                           </Button>
                           <Button
                             className="w-full gap-2"
                             variant="destructive"
-                            onClick={() => handleEmailAction("reject")}
+                            onClick={() => handleEmailAction("reject", "reject")}
                           >
                             <UserX className="h-4 w-4" />
                             Từ chối
@@ -538,14 +624,14 @@ export function CandidateDetailModal({
 
                       {candidate.stage === "interview-2" && (
                         <>
-                          <Button className="w-full gap-2" onClick={() => handleEmailAction("offer")}>
+                          <Button className="w-full gap-2" onClick={() => handleEmailAction("offer", "offer-congratulations")}>
                             <UserCheck className="h-4 w-4" />
                             Gửi thư mời làm việc
                           </Button>
                           <Button
                             className="w-full gap-2"
                             variant="destructive"
-                            onClick={() => handleEmailAction("reject")}
+                            onClick={() => handleEmailAction("reject", "reject")}
                           >
                             <UserX className="h-4 w-4" />
                             Từ chối
@@ -555,17 +641,17 @@ export function CandidateDetailModal({
 
                       {candidate.stage === "offer" && (
                         <>
-                          <Button className="w-full gap-2" onClick={() => handleEmailAction("offer")}>
+                          <Button className="w-full gap-2" onClick={() => handleEmailAction("offer", "offer-congratulations")}>
                             <UserCheck className="h-4 w-4" />
-                            Gửi thư mời làm việc
+                            {(candidate.emailStatusByStage && candidate.emailStatusByStage["offer-congratulations"]?.sent)
+                              ? "Gửi lại thư mời làm việc"
+                              : "Gửi thư mời làm việc"}
                           </Button>
-                          <Button
-                            className="w-full gap-2"
-                            variant="destructive"
-                            onClick={() => handleEmailAction("reject")}
-                          >
-                            <UserX className="h-4 w-4" />
-                            Từ chối
+                          <Button className="w-full gap-2" variant="outline" onClick={() => handleEmailAction("offer", "offer-health-check")}>
+                            <UserCheck className="h-4 w-4" />
+                            {(candidate.emailStatusByStage && candidate.emailStatusByStage["offer-health-check"]?.sent)
+                              ? "Gửi lại hướng dẫn khám sức khỏe"
+                              : "Gửi hướng dẫn khám sức khỏe"}
                           </Button>
                         </>
                       )}
@@ -586,7 +672,7 @@ export function CandidateDetailModal({
                           <Button
                             className="w-full gap-2"
                             variant="outline"
-                            onClick={() => handleEmailAction("reject")}
+                            onClick={() => handleEmailAction("reject", "reject")}
                           >
                             <Mail className="h-4 w-4" />
                             {candidate.emailSent ? "Gửi lại email từ chối" : "Gửi email từ chối"}
@@ -603,7 +689,7 @@ export function CandidateDetailModal({
                           <Button
                             className="w-full gap-2"
                             variant="outline"
-                            onClick={() => handleEmailAction("reject")}
+                            onClick={() => handleEmailAction("reject", "reject")}
                           >
                             <Mail className="h-4 w-4" />
                             Gửi email từ chối
@@ -612,13 +698,17 @@ export function CandidateDetailModal({
                       )}
 
                       {/* Nút gửi lại email cho các giai đoạn cần email */}
-                      {(candidate.stage === "knowledge-test" || candidate.stage === "interview-1" || candidate.stage === "interview-2" || candidate.stage === "offer") && (
+                      {(candidate.stage === "knowledge-test" || candidate.stage === "interview-1" || candidate.stage === "interview-2") && (
                         <Button 
                           className="w-full gap-2" 
                           variant="outline"
                           onClick={() => {
                             const emailType = candidate.stage === "offer" ? "offer" : "interview"
-                            handleEmailAction(emailType)
+                            const tpl =
+                              candidate.stage === "knowledge-test" ? "interview-round-1" :
+                              candidate.stage === "interview-1" ? "interview-round-2" :
+                              undefined
+                            handleEmailAction(emailType as any, tpl)
                           }}
                         >
                           <Mail className="h-4 w-4" />
@@ -711,6 +801,7 @@ export function CandidateDetailModal({
           position: candidate.viTri,
         }}
         emailType={emailType}
+        templateType={templateType}
       />
     </>
   )

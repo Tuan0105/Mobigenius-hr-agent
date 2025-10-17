@@ -2523,14 +2523,14 @@ const initialCandidates: Candidate[] = [
         candidateId: 27,
         action: "CV được tải lên hệ thống",
         user: "Hệ thống",
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(new Date().getTime() + 1000).toISOString(),
       },
       {
         id: 101,
         candidateId: 27,
         action: "AI hoàn thành sàng lọc tự động",
         user: "AI Agent",
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(new Date().getTime() + 2000).toISOString(),
         details: { score: 89, criteria_passed: 4, criteria_failed: 1 },
       },
       {
@@ -2538,7 +2538,7 @@ const initialCandidates: Candidate[] = [
         candidateId: 27,
         action: "Gửi CV đến BPCM duyệt",
         user: "HR Manager",
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(new Date().getTime() + 3000).toISOString(),
         details: { department: "Phòng Công nghệ thông tin" },
       },
       {
@@ -2546,7 +2546,7 @@ const initialCandidates: Candidate[] = [
         candidateId: 27,
         action: "BPCM đồng ý ứng viên",
         user: "Trưởng phòng CNTT",
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(new Date().getTime() + 4000).toISOString(),
         details: {
           reason: "Ứng viên có kinh nghiệm Java và microservices rất tốt, phù hợp với yêu cầu dự án.",
           department: "Phòng Công nghệ thông tin"
@@ -2617,14 +2617,14 @@ const initialCandidates: Candidate[] = [
         candidateId: 28,
         action: "CV được tải lên hệ thống",
         user: "Hệ thống",
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(new Date().getTime() + 1000).toISOString(),
       },
       {
         id: 105,
         candidateId: 28,
         action: "AI hoàn thành sàng lọc tự động",
         user: "AI Agent",
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(new Date().getTime() + 2000).toISOString(),
         details: { score: 92, criteria_passed: 5, criteria_failed: 0 },
       },
       {
@@ -2632,7 +2632,7 @@ const initialCandidates: Candidate[] = [
         candidateId: 28,
         action: "Gửi CV đến BPCM duyệt",
         user: "HR Manager",
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(new Date().getTime() + 3000).toISOString(),
         details: { department: "Phòng Công nghệ thông tin" },
       },
       {
@@ -2640,7 +2640,7 @@ const initialCandidates: Candidate[] = [
         candidateId: 28,
         action: "BPCM đồng ý ứng viên",
         user: "Trưởng phòng CNTT",
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(new Date().getTime() + 4000).toISOString(),
         details: {
           reason: "Ứng viên có kinh nghiệm DevOps và cloud rất tốt, phù hợp với yêu cầu infrastructure.",
           department: "Phòng Công nghệ thông tin"
@@ -2794,6 +2794,26 @@ export function useHRData() {
             }
           : candidate
       )
+    )
+  }, [])
+
+  // Add generic activity (used for BPCM decisions, etc.)
+  const addActivity = useCallback((candidateId: number, action: string, user: string, details?: Record<string, any>) => {
+    const activity: Activity = {
+      id: Date.now(),
+      candidateId,
+      action,
+      user,
+      timestamp: new Date().toISOString(),
+      details
+    }
+
+    setCandidates(prev =>
+      prev.map(c => c.id === candidateId ? {
+        ...c,
+        activities: [...c.activities, activity],
+        updatedAt: new Date().toISOString()
+      } : c)
     )
   }, [])
 
@@ -3010,6 +3030,7 @@ export function useHRData() {
     updateCandidateBPCMReviews,
     getEmailStatusForStage,
     addEmailActivity,
+    addActivity,
     syncCVsFromEmail,
     getStageStats,
   }
