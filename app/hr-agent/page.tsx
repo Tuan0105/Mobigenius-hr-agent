@@ -395,6 +395,9 @@ export default function HRAgentPage() {
   const [bpcmSelectorOpen, setBpcmSelectorOpen] = useState(false)
   const [bpcmCandidate, setBpcmCandidate] = useState<Candidate | null>(null)
   
+  // Notification popover state
+  const [notificationPopoverOpen, setNotificationPopoverOpen] = useState(false)
+  
   // Function to handle email menu click with auto-scroll
   const handleEmailMenuClick = useCallback((candidateId: number) => {
     setEmailMenuOpenId(emailMenuOpenId === candidateId ? null : candidateId)
@@ -1447,7 +1450,7 @@ export default function HRAgentPage() {
                   Tải tất cả
                 </Button>
                 {/* Notifications */}
-                <Popover>
+                <Popover open={notificationPopoverOpen} onOpenChange={setNotificationPopoverOpen}>
                   <PopoverTrigger asChild>
                     <div className="relative">
                       <Button variant="outline" size="icon" className="bg-transparent hover:bg-accent">
@@ -1483,11 +1486,18 @@ export default function HRAgentPage() {
                       })
                       if (notifications.length === 0) return <div className="p-3 text-sm text-muted-foreground">Chưa có thông báo</div>
                       const handleJump = (id:number) => {
+                        // Close the popover first
+                        setNotificationPopoverOpen(false)
+                        
                         const el = document.getElementById(`row-${id}`)
                         if (el) {
                           el.scrollIntoView({ behavior:'smooth', block:'center'})
-                          el.classList.add('ring', 'ring-primary')
-                          setTimeout(()=> el.classList.remove('ring','ring-primary'), 1500)
+                          
+                          // Simple focus effect - appears once and fades out
+                          el.classList.add('ring-2', 'ring-primary', 'ring-offset-2', 'bg-primary/5', 'shadow-lg', 'scale-[1.02]', 'transition-all', 'duration-300')
+                          setTimeout(() => {
+                            el.classList.remove('ring-2', 'ring-primary', 'ring-offset-2', 'bg-primary/5', 'shadow-lg', 'scale-[1.02]', 'transition-all', 'duration-300')
+                          }, 2000)
                         }
                       }
                       return (
