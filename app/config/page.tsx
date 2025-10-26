@@ -18,7 +18,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { useConfigData } from "@/lib/config-store"
 import {
-  ArrowLeft,
   Bold,
   Edit,
   Filter,
@@ -29,7 +28,7 @@ import {
   Save,
   Trash2,
   Underline,
-  Users,
+  Users
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useCallback, useRef, useState } from "react"
@@ -52,7 +51,7 @@ const mockEmailTemplates = [
 
 export default function ConfigPage() {
   const router = useRouter()
-  const { positions, criteria, addPosition, updatePosition, deletePosition, getCriteriaByPosition, getCommonCriteria, addCriteria, updateCriteria, deleteCriteria, emailTemplates, updateEmailTemplate, addEmailTemplate } = useConfigData()
+  const { positions, criteria, addPosition, updatePosition, deletePosition, getCriteriaByPosition, getCommonCriteria, addCriteria, updateCriteria, deleteCriteria, emailTemplates, updateEmailTemplate, addEmailTemplate, aiPrompt, aiKnowledgeFiles, updateAiPrompt, addKnowledgeFiles, deleteKnowledgeFile } = useConfigData()
   const { toast } = useToast()
   const addFormRef = useRef<HTMLDivElement | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -62,7 +61,10 @@ export default function ConfigPage() {
   const [modalName, setModalName] = useState("")
   const [modalStatus, setModalStatus] = useState<"active" | "paused">("active")
   const [activeTab, setActiveTab] = useState("positions")
+  const [localAiPrompt, setLocalAiPrompt] = useState(aiPrompt)
+  const [pendingFiles, setPendingFiles] = useState<FileList | null>(null)
   const [selectedPosition, setSelectedPosition] = useState("")
+  const aiFileInputRef = useRef<HTMLInputElement | null>(null)
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null)
   const [emailSubject, setEmailSubject] = useState("")
   const [emailContent, setEmailContent] = useState("")
@@ -137,9 +139,7 @@ export default function ConfigPage() {
           <header className="border-b border-border bg-card px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => router.push("/")}>
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
+                
                 <div>
                   <h1 className="text-2xl font-bold text-foreground">Cấu hình HR Agent</h1>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -153,7 +153,7 @@ export default function ConfigPage() {
           {/* Content */}
           <div className="flex-1 overflow-auto p-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="positions" className="gap-2">
                   <Users className="h-4 w-4" />
                   Vị trí tuyển dụng
@@ -165,6 +165,10 @@ export default function ConfigPage() {
                 <TabsTrigger value="templates" className="gap-2">
                   <Mail className="h-4 w-4" />
                   Mẫu Email
+                </TabsTrigger>
+                <TabsTrigger value="ai" className="gap-2">
+                  <Users className="h-4 w-4" />
+                  Cấu hình AI Agent
                 </TabsTrigger>
               </TabsList>
 
@@ -366,6 +370,84 @@ export default function ConfigPage() {
                   </DialogContent>
                 </Dialog>
               </TabsContent>
+
+            {/* AI Agent Config Tab */}
+            <TabsContent value="ai" className="space-y-6">
+              {/* Knowledge Base Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>File Cấu hình Tuyển dụng</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>Import File (.pdf, .docx, .xlsx)</Label>
+                    <div className="flex items-center gap-3 mt-2">
+                      <Input ref={aiFileInputRef} type="file" accept=".pdf,.doc,.docx,.xlsx" onChange={(e) => setPendingFiles(e.target.files)} />
+                      <Button className="gap-2" onClick={() => {
+                        if (!pendingFiles || pendingFiles.length === 0) {
+                          toast({ title: "Chưa chọn file", description: "Hãy chọn ít nhất 1 file để import" })
+                          return
+                        }
+                        addKnowledgeFiles(Array.from(pendingFiles).map(f => ({ name: f.name })))
+                        setPendingFiles(null)
+                        if (aiFileInputRef.current) aiFileInputRef.current.value = ""
+                        toast({ title: "Đã import file", description: `Đã thêm ${pendingFiles.length} file vào nguồn tri thức` })
+                      }}><Plus className="h-4 w-4" />Import</Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Danh sách đã import</Label>
+                    <div className="space-y-2">
+                      {aiKnowledgeFiles.length === 0 ? (
+                        <div className="text-sm text-muted-foreground">Chưa có file nào</div>
+                      ) : (
+                        aiKnowledgeFiles.map(f => (
+                          <div key={f.id} className="flex items-center justify-between p-2 border rounded-md">
+                            <div className="text-sm text-foreground">{f.name}</div>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Xoá file?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Bạn có chắc muốn xoá "{f.name}" khỏi nguồn tri thức?
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Huỷ</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => { deleteKnowledgeFile(f.id); toast({ title: "Đã xoá file", description: f.name }) }}>Xoá</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Prompt Customization */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Yêu cầu thứ cấp</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Nhập các chỉ dẫn, yêu cầu đặc biệt cho AI khi sàng lọc CV. Ví dụ: "Tập trung ưu tiên các ứng viên có bằng Giỏi, có kinh nghiệm làm việc tại các công ty viễn thông".
+                  </p>
+                  <Textarea className="min-h-48" placeholder="Nhập yêu cầu cho AI..." value={localAiPrompt} onChange={(e) => setLocalAiPrompt(e.target.value)} />
+                  <div className="flex justify-end gap-3">
+                    <Button variant="secondary" onClick={() => { setLocalAiPrompt(aiPrompt); toast({ title: "Đã hoàn tác", description: "Khôi phục yêu cầu như đã lưu" }) }}>Hoàn tác</Button>
+                    <Button className="gap-2" onClick={() => { updateAiPrompt(localAiPrompt); toast({ title: "Đã lưu yêu cầu", description: "Yêu cầu cho hệ thống AI đã được cập nhật" }) }}><Save className="h-4 w-4" />Lưu</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
               {/* Criteria Tab */}
               <TabsContent value="criteria" className="space-y-6">

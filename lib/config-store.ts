@@ -337,6 +337,13 @@ export function useConfigData() {
   const [criteria, setCriteria] = useState<ScreeningCriteria[]>(initialCriteria)
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>(initialEmailTemplates)
   const [isLoading, setIsLoading] = useState(false)
+  // AI agent config
+  const [aiPrompt, setAiPrompt] = useState<string>(
+    "Tập trung ưu tiên các ứng viên có bằng Giỏi, có kinh nghiệm tại công ty viễn thông."
+  )
+  const [aiKnowledgeFiles, setAiKnowledgeFiles] = useState<Array<{ id: number; name: string; uploadedAt: string }>>([
+    { id: 1, name: "Quy_che_tuyen_dung_2025.pdf", uploadedAt: new Date().toISOString() },
+  ])
 
   // Position management
   const addPosition = useCallback((positionData: Omit<Position, "id" | "applications" | "createdAt" | "updatedAt">) => {
@@ -419,12 +426,32 @@ export function useConfigData() {
     )
   }, [])
 
+  // AI config management
+  const updateAiPrompt = useCallback((prompt: string) => {
+    setAiPrompt(prompt)
+  }, [])
+
+  const addKnowledgeFiles = useCallback((files: Array<{ name: string }>) => {
+    if (!files || files.length === 0) return
+    const now = new Date().toISOString()
+    setAiKnowledgeFiles((prev) => [
+      ...prev,
+      ...files.map((f) => ({ id: Date.now() + Math.random(), name: f.name, uploadedAt: now })),
+    ])
+  }, [])
+
+  const deleteKnowledgeFile = useCallback((id: number) => {
+    setAiKnowledgeFiles((prev) => prev.filter((f) => f.id !== id))
+  }, [])
+
   return {
     // Data
     positions,
     criteria,
     emailTemplates,
     isLoading,
+    aiPrompt,
+    aiKnowledgeFiles,
 
     // Position methods
     addPosition,
@@ -442,5 +469,10 @@ export function useConfigData() {
     getTemplateByType,
     addEmailTemplate,
     updateEmailTemplate,
+
+    // AI config methods
+    updateAiPrompt,
+    addKnowledgeFiles,
+    deleteKnowledgeFile,
   }
 }

@@ -3,9 +3,8 @@
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
-import { BarChart3, Brain, ChevronDown, ChevronRight, FileText, LogOut, Users } from "lucide-react"
+import { Brain, Calendar, LogOut, Settings, Users } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
-import { useState } from "react"
 
 interface SidebarProps {
   className?: string
@@ -15,9 +14,6 @@ export function Sidebar({ className }: SidebarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { logout, user } = useAuth()
-  const [isAgenticExpanded, setIsAgenticExpanded] = useState(true)
-  const [isManagementExpanded, setIsManagementExpanded] = useState(false)
-  const [isReportsExpanded, setIsReportsExpanded] = useState(false)
 
   return (
     <div className={cn("flex h-screen w-64 flex-col bg-sidebar border-r border-sidebar-border", className)}>
@@ -31,124 +27,57 @@ export function Sidebar({ className }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-4">
-        {/* Agentic AI Section */}
+        {/* HR Management Section */}
         <div className="space-y-1">
           <Button
             variant="ghost"
-            className="w-full justify-between text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            onClick={() => setIsAgenticExpanded(!isAgenticExpanded)}
+            className={cn(
+              "w-full justify-start",
+              pathname === "/" || pathname === "/hr-agent"
+                ? "text-sidebar-primary bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            )}
+            onClick={() => router.push("/hr-agent")}
           >
-            <span className="flex items-center gap-2">
-              <Brain className="h-4 w-4" />
-              Agentic AI
-            </span>
-            {isAgenticExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <Users className="mr-2 h-4 w-4" />
+            Quản lý Tuyển dụng
           </Button>
-
-          {isAgenticExpanded && (
-            <div className="ml-6 space-y-1">
-              <Button
-                variant="ghost"
-                className={cn(
-                  "w-full justify-start",
-                  pathname === "/" || pathname === "/hr-agent"
-                    ? "text-sidebar-primary bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                )}
-                onClick={() => router.push("/hr-agent")}
-              >
-                <Users className="mr-2 h-4 w-4" />
-                HR Agent
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                onClick={() => router.push("/data-agent")}
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                Data Agent
-                {/* <span className="ml-auto rounded bg-destructive px-1.5 py-0.5 text-xs text-destructive-foreground">
-                  NEW
-                </span> */}
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                onClick={() => router.push("/deep-research")}
-              >
-                <BarChart3 className="mr-2 h-4 w-4" />
-                Deep Research
-                {/* <span className="ml-auto rounded bg-destructive px-1.5 py-0.5 text-xs text-destructive-foreground">
-                  NEW
-                </span> */}
-              </Button>
-            </div>
-          )}
         </div>
 
-        {/* Management Section */}
+        {/* Exam Management Section */}
         <div className="space-y-1">
           <Button
             variant="ghost"
-            className="w-full justify-between text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            onClick={() => setIsManagementExpanded(!isManagementExpanded)}
+            className={cn(
+              "w-full justify-start",
+              pathname === "/exam-batches"
+                ? "text-sidebar-primary bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            )}
+            onClick={() => router.push("/exam-batches")}
           >
-            <span className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Quản lý
-            </span>
-            {isManagementExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <Calendar className="mr-2 h-4 w-4" />
+            Quản lý Đợt thi
           </Button>
-
-          {isManagementExpanded && (
-            <div className="ml-6 space-y-1">
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                onClick={() => router.push("/management-registration")}
-              >
-                <Users className="mr-2 h-4 w-4" />
-                Quản lý đăng ký
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                onClick={() => router.push("/management-integration")}
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                Quản lý tích hợp
-              </Button>
-            </div>
-          )}
         </div>
 
-        {/* Reports Section */}
+        {/* Configuration Section */}
         <div className="space-y-1">
           <Button
             variant="ghost"
-            className="w-full justify-between text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            onClick={() => setIsReportsExpanded(!isReportsExpanded)}
+            className={cn(
+              "w-full justify-start",
+              pathname === "/config"
+                ? "text-sidebar-primary bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            )}
+            onClick={() => router.push("/config")}
           >
-            <span className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Báo cáo
-            </span>
-            {isReportsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <Settings className="mr-2 h-4 w-4" />
+            Cấu hình
           </Button>
-
-          {isReportsExpanded && (
-            <div className="ml-6 space-y-1">
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                onClick={() => router.push("/log-monitoring")}
-              >
-                <BarChart3 className="mr-2 h-4 w-4" />
-                Giám sát log
-              </Button>
-            </div>
-          )}
         </div>
+
       </nav>
 
       {/* Footer */}

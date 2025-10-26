@@ -11,15 +11,15 @@ import type { Candidate } from "@/lib/types"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
 import {
-  Award,
-  Briefcase,
-  CheckCircle,
-  Download, FileSpreadsheet, GraduationCap,
-  Mail,
-  Phone,
-  UserCheck,
-  UserX,
-  XCircle
+    Award,
+    Briefcase,
+    CheckCircle,
+    Download, FileSpreadsheet, GraduationCap,
+    Mail,
+    Phone,
+    UserCheck,
+    UserX,
+    XCircle
 } from "lucide-react"
 import { useEffect, useState } from "react"
 
@@ -514,23 +514,7 @@ export function CandidateDetailModal({
                       )}
                     </div>
                     <div className="space-y-2">
-                      {/* Nút hành động theo giai đoạn */}
-                      {(candidate.stage === "cv-new" || (candidate.stage === "screening" && candidate.status !== "suitable" && candidate.status !== "unsuitable")) && (
-                        <>
-                          <Button className="w-full gap-2" onClick={() => handleStatusUpdate("suitable")}>
-                            <CheckCircle className="h-4 w-4" />
-                            Phù hợp
-                          </Button>
-                          <Button
-                            className="w-full gap-2"
-                            variant="destructive"
-                            onClick={() => handleStatusUpdate("unsuitable")}
-                          >
-                            <XCircle className="h-4 w-4" />
-                            Không phù hợp
-                          </Button>
-                        </>
-                      )}
+                      {/* AI đã tự động đánh giá - không cần nút hành động thủ công */}
 
                       {/* BPCM actions in detail view */}
                       {candidate.stage === "bpcm-pending" && (onBPCMApprove || onBPCMReject) && (

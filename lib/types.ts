@@ -22,8 +22,11 @@ export interface Candidate {
   lyDoLoai: string
   donViSangLocHS: string
   score: number
-  status: "suitable" | "unsuitable"
-  stage: "cv-new" | "screening" | "bpcm-pending" | "bpcm-approved" | "bpcm-rejected" | "knowledge-test" | "interview-1" | "interview-2" | "offer" | "hired" | "rejected"
+  status: "suitable" | "unsuitable" | "suitable-form1" | "suitable-form2"
+  stage: "cv-new" | "screening" | "bpcm-pending" | "bpcm-approved" | "bpcm-rejected" | "knowledge-test" | "interview-1" | "interview-2" | "offer" | "hired" | "rejected" | "waiting-exam-schedule" | "scheduled-exam" | "pass-test" | "fail-test"
+  interviewResult?: "pending" | "passed" | "rejected"
+  schedule?: string // Lịch trình: "Thi: 25/10/2025", "PV V1: 26/10/2025", "PV V2: 28/10/2025"
+  examBatchId?: string // id của đợt thi đã gán (nếu có)
   skills: string[]
   notes: string
   emailSent: boolean
@@ -92,4 +95,29 @@ export interface FilterState {
   stage: string
   status: string
   search: string
+  examBatch: string // id của đợt thi để lọc, "all" nếu không lọc
+}
+
+export interface ExamBatch {
+  id: string
+  name: string
+  examDate: string
+  format: "online" | "offline"
+  location?: string
+  maxCandidates: number
+  assignedCandidates: number
+  status: "open" | "completed" | "graded"
+  createdAt: string
+  updatedAt: string
+  candidates?: ExamBatchCandidate[]
+}
+
+export interface ExamBatchCandidate {
+  candidateId: number
+  candidateName: string
+  candidateEmail: string
+  assignedAt: string
+  examResult?: "pass" | "fail"
+  examScore?: number
+  notes?: string
 }

@@ -1,15 +1,15 @@
 "use client"
 
-import { BPCMDepartmentSelector } from "@/components/bpcm-department-selector"
-import { BPCMReviewStatus } from "@/components/bpcm-review-status"
 import { CandidateDetailModal } from "@/components/candidate-detail-modal"
 import { EmailCompositionModal } from "@/components/email-composition-modal"
+import { ExamBatchAssignmentModal } from "@/components/exam-batch-assignment-modal"
 import { ProtectedRoute } from "@/components/protected-route"
 import { Sidebar } from "@/components/sidebar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -23,16 +23,17 @@ import type { BPCMReview, Candidate } from "@/lib/types"
 import { closestCenter, DndContext, type DragEndEvent, DragOverlay, type DragStartEvent, PointerSensor, useDroppable, useSensor, useSensors } from "@dnd-kit/core"
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { Bell, Check, Cloud, Download, Eye, FileText, Loader2, Mail, MoreHorizontal, Search, Send, Settings, XCircle } from "lucide-react"
+import { Bell, Check, Cloud, Download, Eye, FileText, Loader2, Mail, MoreHorizontal, Search, Users, XCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 
 const stages = [
   { id: "cv-new", title: "CV Mới" },
-  { id: "bpcm-pending", title: "Chờ BPCM Duyệt" },
-  { id: "bpcm-approved", title: "BPCM Đã Duyệt" },
-  { id: "bpcm-rejected", title: "BPCM Từ Chối" },
   { id: "knowledge-test", title: "Vòng Thi Kiến Thức, Kỹ Năng" },
+  { id: "waiting-exam-schedule", title: "Chờ xếp lịch thi" },
+  { id: "scheduled-exam", title: "Đã xếp lịch thi" },
+  { id: "pass-test", title: "Đạt thi" },
+  { id: "fail-test", title: "Không đạt thi" },
   { id: "interview-1", title: "Tham dự phỏng vấn vòng 1" },
   { id: "interview-2", title: "Tham dự phỏng vấn vòng 2" },
   { id: "offer", title: "Nhân sự chính thức" },
@@ -65,9 +66,12 @@ function SortableCandidateCard({ candidate, onClick }: SortableCandidateCardProp
   const getStatusColor = (status: string) => {
     switch (status) {
       case "suitable":
-        return "bg-success text-success-foreground"
+      case "suitable-form1":
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+      case "suitable-form2":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
       case "unsuitable":
-        return "bg-destructive text-destructive-foreground"
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
       default:
         return "bg-muted text-muted-foreground"
     }
@@ -77,6 +81,10 @@ function SortableCandidateCard({ candidate, onClick }: SortableCandidateCardProp
     switch (status) {
       case "suitable":
         return "Phù hợp"
+      case "suitable-form1":
+        return "Phù hợp (H1)"
+      case "suitable-form2":
+        return "Phù hợp (H2)"
       case "unsuitable":
         return "Không phù hợp"
       default:
@@ -274,9 +282,12 @@ function CandidateCard({ candidate, onClick }: { candidate: Candidate; onClick: 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "suitable":
-        return "bg-success text-success-foreground"
+      case "suitable-form1":
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+      case "suitable-form2":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
       case "unsuitable":
-        return "bg-destructive text-destructive-foreground"
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
       default:
         return "bg-muted text-muted-foreground"
     }
@@ -286,6 +297,10 @@ function CandidateCard({ candidate, onClick }: { candidate: Candidate; onClick: 
     switch (status) {
       case "suitable":
         return "Phù hợp"
+      case "suitable-form1":
+        return "Phù hợp (H1)"
+      case "suitable-form2":
+        return "Phù hợp (H2)"
       case "unsuitable":
         return "Không phù hợp"
       default:
@@ -360,9 +375,11 @@ function CandidateCard({ candidate, onClick }: { candidate: Candidate; onClick: 
 }
 
 export default function HRAgentPage() {
-  // AI result is derived from score (>= 50 suitable, else unsuitable)
-  const getAIStatusFromScore = (score: number): "suitable" | "unsuitable" => {
-    return score >= 50 ? "suitable" : "unsuitable"
+  // AI result is derived from score with 3 categories
+  const getAIStatusFromScore = (score: number): "suitable" | "unsuitable" | "suitable-form1" | "suitable-form2" => {
+    if (score < 30) return "unsuitable"
+    if (score >= 30 && score < 70) return "suitable-form2" // Hình thức 2 - Cần thi kỹ năng
+    return "suitable-form1" // Hình thức 1 - Tới phỏng vấn ngay
   }
   const router = useRouter()
   const { getTemplateByType } = useConfigData()
@@ -373,6 +390,9 @@ export default function HRAgentPage() {
     setFilters,
     isLoading,
     updateCandidateStage,
+    updateCandidateInterviewResult,
+    updateCandidateSchedule,
+    updateCandidateExamBatch,
     updateCandidateNotes,
     updateCandidateStatus,
     updateCandidateEmailStatus,
@@ -381,6 +401,7 @@ export default function HRAgentPage() {
     addEmailActivity,
     syncCVsFromEmail,
     getStageStats,
+    examBatches,
   } = useHRData()
 
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
@@ -391,12 +412,16 @@ export default function HRAgentPage() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [emailMenuOpenId, setEmailMenuOpenId] = useState<number | null>(null)
   
-  // BPCM Department Selector states
-  const [bpcmSelectorOpen, setBpcmSelectorOpen] = useState(false)
-  const [bpcmCandidate, setBpcmCandidate] = useState<Candidate | null>(null)
   
   // Notification popover state
   const [notificationPopoverOpen, setNotificationPopoverOpen] = useState(false)
+  
+  // Exam batch assignment states
+  const [examBatchAssignmentOpen, setExamBatchAssignmentOpen] = useState(false)
+  
+  // Status change modal states
+  const [statusChangeModalOpen, setStatusChangeModalOpen] = useState(false)
+  const [newStatus, setNewStatus] = useState<string>("")
   
   // Function to handle email menu click with auto-scroll
   const handleEmailMenuClick = useCallback((candidateId: number) => {
@@ -830,38 +855,38 @@ export default function HRAgentPage() {
     [candidates, updateCandidateStage, stagesWithCounts],
   )
 
-  // BPCM Department Selection handlers
-  const handleSendToBPCM = useCallback((candidate: Candidate) => {
-    setBpcmCandidate(candidate)
-    setBpcmSelectorOpen(true)
-  }, [])
 
-  const handleBPCMSubmit = useCallback((departments: any[], note: string) => {
-    if (!bpcmCandidate) return
-
-    // Create BPCM reviews for each department
-    const bpcmReviews = departments.map(dept => ({
-      id: `${bpcmCandidate.id}-${dept.id}-${Date.now()}`,
-      departmentId: dept.id,
-      departmentName: dept.name,
-      status: "pending" as const,
-      submittedAt: new Date().toISOString(),
-    }))
-
-    // Update candidate with BPCM reviews using the new function
-    updateCandidateBPCMReviews(bpcmCandidate.id, bpcmReviews, "bpcm-pending")
-
-    // Show success toast
-    toast({
-      title: "Đã gửi CV đến BPCM",
-      description: `CV của ${bpcmCandidate.hoVaTenDem} ${bpcmCandidate.ten} đã được gửi đến ${departments.length} phòng ban để duyệt.`,
+  // Exam batch assignment handler
+  const handleExamBatchAssignment = useCallback((batchId: string) => {
+    // Find the selected batch to get exam date
+    const selectedBatch = examBatches.find(batch => batch.id === batchId)
+    const examDate = selectedBatch?.examDate ? new Date(selectedBatch.examDate).toLocaleDateString('vi-VN') : 'N/A'
+    
+    // Update selected candidates to scheduled-exam stage
+    const selectedList = candidates.filter((c) => selectedCandidates.has(c.id))
+    selectedList.forEach(candidate => {
+      updateCandidateStage(candidate.id, "scheduled-exam" as any)
+      // Update schedule with exam date
+      updateCandidateSchedule(candidate.id, `Thi: ${examDate}`)
+      // Save assigned batch id for filtering
+      if (selectedBatch) {
+        // @ts-ignore: store exposes updater
+        if (typeof updateCandidateExamBatch === 'function') {
+          // @ts-ignore
+          updateCandidateExamBatch(candidate.id, selectedBatch.id)
+        }
+      }
     })
 
-    setBpcmSelectorOpen(false)
-    setBpcmCandidate(null)
-  }, [bpcmCandidate, updateCandidateBPCMReviews])
+    toast({
+      title: "Đã gán vào đợt thi",
+      description: `Đã gán ${selectedList.length} ứng viên vào đợt thi ngày ${examDate}.`,
+    })
 
-  const handleEmailSend = (emailData: any) => {
+    setExamBatchAssignmentOpen(false)
+  }, [candidates, selectedCandidates, updateCandidateStage, updateCandidateSchedule, examBatches])
+
+  const handleEmailSend = useCallback((emailData: any) => {
     if (emailCandidate) {
       // Record activity with the current email type
       addEmailActivity(emailCandidate.id, emailType, {
@@ -902,7 +927,24 @@ export default function HRAgentPage() {
           // No stage change needed
         }
       } else if (emailType === "interview" && emailStageOverride) {
-        updateCandidateStage(emailCandidate.id, emailStageOverride as any)
+        // Chuyển trạng thái dựa trên target stage
+        if (emailStageOverride === "interview-1") {
+          updateCandidateStage(emailCandidate.id, "interview-1" as any)
+          // Update schedule with interview date
+          if (emailData.interviewDate) {
+            const interviewDate = new Date(emailData.interviewDate).toLocaleDateString('vi-VN')
+            updateCandidateSchedule(emailCandidate.id, `PV V1: ${interviewDate}`)
+          }
+        } else if (emailStageOverride === "interview-2") {
+          updateCandidateStage(emailCandidate.id, "interview-2" as any)
+          // Reset interview result to pending when moving to interview-2
+          updateCandidateInterviewResult(emailCandidate.id, "pending")
+          // Update schedule with interview date
+          if (emailData.interviewDate) {
+            const interviewDate = new Date(emailData.interviewDate).toLocaleDateString('vi-VN')
+            updateCandidateSchedule(emailCandidate.id, `PV V2: ${interviewDate}`)
+          }
+        }
       }
 
       // Clear override after handling
@@ -912,7 +954,7 @@ export default function HRAgentPage() {
       setEmailModalOpen(false)
       setEmailCandidate(null)
     }
-  }
+  }, [emailCandidate, emailType, emailStageOverride, addEmailActivity, updateCandidateEmailStatus, updateCandidateStage, updateCandidateStatus, updateCandidateSchedule, updateCandidateInterviewResult, getTemplateTypeFromStage, templateTypeToLabel, toast])
 
   const handleSyncCVs = async () => {
     try {
@@ -979,11 +1021,12 @@ export default function HRAgentPage() {
 
     switch (action) {
       case "change-status":
-        // TODO: Implement bulk status change
-        toast({
-          title: "Thay đổi trạng thái hàng loạt",
-          description: `Đã chọn ${selectedCandidates.size} ứng viên để thay đổi trạng thái`,
-        })
+        // Open status change modal
+        setStatusChangeModalOpen(true)
+        break
+      case "assign-exam-batch":
+        // Open exam batch assignment modal
+        setExamBatchAssignmentOpen(true)
         break
       case "send-email":
         // TODO: Implement bulk email
@@ -1002,6 +1045,24 @@ export default function HRAgentPage() {
     }
   }
 
+  // Handle bulk status change
+  const handleBulkStatusChange = useCallback(() => {
+    if (!newStatus) return
+
+    const selectedList = candidates.filter((c) => selectedCandidates.has(c.id))
+    selectedList.forEach(candidate => {
+      updateCandidateStage(candidate.id, newStatus as any)
+    })
+
+    toast({
+      title: "Đã thay đổi trạng thái hàng loạt",
+      description: `Đã chuyển ${selectedList.length} ứng viên sang trạng thái mới`,
+    })
+
+    setStatusChangeModalOpen(false)
+    setNewStatus("")
+  }, [candidates, selectedCandidates, newStatus, updateCandidateStage])
+
   const handleStageChange = (candidateId: number, newStage: string) => {
     updateCandidateStage(candidateId, newStage as any)
     const candidate = candidates.find(c => c.id === candidateId)
@@ -1009,6 +1070,19 @@ export default function HRAgentPage() {
       toast({
         title: "Cập nhật giai đoạn",
         description: `Đã chuyển ${candidate.hoVaTenDem} ${candidate.ten} sang giai đoạn mới`,
+      })
+    }
+  }
+
+  const handleInterviewResultChange = (candidateId: number, newResult: "pending" | "passed" | "rejected") => {
+    // Update interview result in the store
+    const candidate = candidates.find(c => c.id === candidateId)
+    if (candidate) {
+      updateCandidateInterviewResult(candidateId, newResult)
+      
+      toast({
+        title: "Cập nhật kết quả phỏng vấn",
+        description: `Đã cập nhật kết quả phỏng vấn cho ${candidate.hoVaTenDem} ${candidate.ten} thành ${newResult === "passed" ? "Đã pass" : newResult === "rejected" ? "Từ chối" : "Đang chờ"}`,
       })
     }
   }
@@ -1034,9 +1108,16 @@ export default function HRAgentPage() {
   const endIndex = startIndex + itemsPerPage
   const paginatedCandidates = sortedCandidates.slice(startIndex, endIndex)
 
-  // Bulk action: enable only when selected and same stage
+  // Bulk action: enable only when selected and same stage and same AI result
   const selectedCandidatesList = candidates.filter((c) => selectedCandidates.has(c.id))
   const hasUniformStage = selectedCandidatesList.length > 0 && (new Set(selectedCandidatesList.map((c) => c.stage))).size === 1
+  
+  // Check if all selected candidates have the same AI result
+  const hasUniformAIResult = selectedCandidatesList.length > 0 && (new Set(selectedCandidatesList.map((c) => {
+    if (c.score < 30) return "unsuitable"
+    if (c.score >= 30 && c.score < 70) return "suitable-form2"
+    return "suitable-form1"
+  }))).size === 1
 
   // Email template helpers
   const getEmailTemplate = useCallback((type: "interview" | "offer" | "reject", targetStage?: string) => {
@@ -1133,7 +1214,18 @@ export default function HRAgentPage() {
           updateCandidateStage(c.id, "hired" as any)
         }
       } else if (emailType === "interview" && emailStageOverride) {
-        updateCandidateStage(c.id, emailStageOverride as any)
+        // Chuyển trạng thái dựa trên target stage
+        if (emailStageOverride === "interview-1") {
+          updateCandidateStage(c.id, "interview-1" as any)
+          // Update schedule with interview date (bulk email doesn't have specific date)
+          updateCandidateSchedule(c.id, "PV V1: Sẽ thông báo sau")
+        } else if (emailStageOverride === "interview-2") {
+          updateCandidateStage(c.id, "interview-2" as any)
+          // Reset interview result to pending when moving to interview-2
+          updateCandidateInterviewResult(c.id, "pending")
+          // Update schedule with interview date (bulk email doesn't have specific date)
+          updateCandidateSchedule(c.id, "PV V2: Sẽ thông báo sau")
+        }
       }
     })
     
@@ -1144,7 +1236,7 @@ export default function HRAgentPage() {
     
     setBulkEmailComposeOpen(false)
     setEmailStageOverride(null)
-  }, [hasUniformStage, emailType, emailStageOverride, selectedCandidatesList, addEmailActivity, updateCandidateEmailStatus, updateCandidateStage, updateCandidateStatus, toast])
+  }, [hasUniformStage, emailType, emailStageOverride, selectedCandidatesList, addEmailActivity, updateCandidateEmailStatus, updateCandidateStage, updateCandidateStatus, updateCandidateSchedule, updateCandidateInterviewResult, toast])
 
   // Filter handlers to prevent infinite loops
   const handlePositionFilter = useCallback((value: string) => {
@@ -1157,6 +1249,10 @@ export default function HRAgentPage() {
 
   const handleStatusFilter = useCallback((value: string) => {
     setFilters(prev => ({ ...prev, status: value }))
+  }, [])
+
+  const handleExamBatchFilter = useCallback((value: string) => {
+    setFilters(prev => ({ ...prev, examBatch: value }))
   }, [])
 
   // Handler functions to prevent infinite loops
@@ -1207,9 +1303,6 @@ export default function HRAgentPage() {
     bulkSendEmail("reject")
   }, [bulkSendEmail])
 
-  const handleConfigNavigation = useCallback(() => {
-    router.push("/config")
-  }, [router])
 
   const handleSortHoVaTenDem = useCallback(() => {
     handleSort("hoVaTenDem")
@@ -1235,9 +1328,12 @@ export default function HRAgentPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "suitable":
-        return "bg-success text-success-foreground"
+      case "suitable-form1":
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+      case "suitable-form2":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
       case "unsuitable":
-        return "bg-destructive text-destructive-foreground"
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
       default:
         return "bg-muted text-muted-foreground"
     }
@@ -1247,6 +1343,10 @@ export default function HRAgentPage() {
     switch (status) {
       case "suitable":
         return "Phù hợp"
+      case "suitable-form1":
+        return "Phù hợp (H1)"
+      case "suitable-form2":
+        return "Phù hợp (H2)"
       case "unsuitable":
         return "Không phù hợp"
       default:
@@ -1389,7 +1489,7 @@ export default function HRAgentPage() {
                   <div className="relative">
                     <Button 
                       variant="outline" 
-                      disabled={!hasUniformStage}
+                      disabled={!hasUniformStage || !hasUniformAIResult}
                       className="gap-2"
                       onClick={handleBulkMenuToggle}
                       aria-haspopup="menu"
@@ -1399,12 +1499,91 @@ export default function HRAgentPage() {
                     </Button>
                     {bulkMenuOpen && (
                       <div className="absolute right-0 top-10 z-[9999] w-56 rounded-md border bg-popover text-popover-foreground shadow-md p-1" role="menu">
+                        {/* General bulk actions */}
+                        <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={() => { handleBulkAction("change-status"); setBulkMenuOpen(false); }}>
+                          Thay đổi trạng thái
+                        </button>
+                        
                         {/* Context-aware options based on uniform stage */}
-                        {selectedCandidatesList[0]?.stage === "cv-new" && (
+                        {selectedCandidatesList[0]?.stage === "waiting-exam-schedule" && (
+                          <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={() => { handleBulkAction("assign-exam-batch"); setBulkMenuOpen(false); }}>
+                            Gán vào Đợt thi
+                          </button>
+                        )}
+                        {selectedCandidatesList[0]?.stage === "scheduled-exam" && (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                            Đã xếp lịch thi - Chờ thi
+                          </div>
+                        )}
+                        {selectedCandidatesList[0]?.stage === "pass-test" && (
                           <>
-                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailKnowledgeTest}>Mời thi kỹ năng</button>
                             <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailInterview1}>Mời phỏng vấn vòng 1</button>
                             <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm text-destructive" onClick={handleBulkEmailReject}>Gửi thư từ chối</button>
+                          </>
+                        )}
+                        {selectedCandidatesList[0]?.stage === "fail-test" && (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                            Không đạt thi - Kết thúc quy trình
+                          </div>
+                        )}
+                        
+                        {selectedCandidatesList[0]?.stage === "cv-new" && (
+                          <>
+                            {/* Kiểm tra kết quả AI của nhóm được chọn */}
+                            {(() => {
+                              const aiResults = selectedCandidatesList.map(c => {
+                                if (c.score < 30) return "unsuitable"
+                                if (c.score >= 30 && c.score < 70) return "suitable-form2"
+                                return "suitable-form1"
+                              })
+                              const uniqueResults = [...new Set(aiResults)]
+                              
+                              // Nếu tất cả cùng kết quả AI
+                              if (uniqueResults.length === 1) {
+                                const aiResult = uniqueResults[0]
+                                if (aiResult === "suitable-form1") {
+                                  return (
+                                    <>
+                                      <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={() => { handleBulkEmailInterview1(); setBulkMenuOpen(false); }}>Mời phỏng vấn vòng 1</button>
+                                      <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm text-destructive" onClick={() => { handleBulkEmailReject(); setBulkMenuOpen(false); }}>Gửi thư từ chối</button>
+                                    </>
+                                  )
+                                } else if (aiResult === "suitable-form2") {
+                                  return (
+                                    <>
+                                      <button 
+                                        className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm"
+                                        onClick={() => {
+                                          // Chuyển tất cả sang chờ xếp lịch thi
+                                          selectedCandidatesList.forEach(c => {
+                                            updateCandidateStage(c.id, "waiting-exam-schedule")
+                                          })
+                                          setBulkMenuOpen(false)
+                                          toast({
+                                            title: "Chuyển trạng thái thành công",
+                                            description: `Đã chuyển ${selectedCandidatesList.length} ứng viên sang "Chờ xếp lịch thi"`,
+                                          })
+                                        }}
+                                      >
+                                        Sắp xếp lịch thi
+                                      </button>
+                                      <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm text-destructive" onClick={() => { handleBulkEmailReject(); setBulkMenuOpen(false); }}>Gửi thư từ chối</button>
+                                    </>
+                                  )
+                                } else {
+                                  return (
+                                    <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm text-destructive" onClick={() => { handleBulkEmailReject(); setBulkMenuOpen(false); }}>Gửi thư từ chối</button>
+                                  )
+                                }
+                              } else {
+                                // Nếu có nhiều kết quả AI khác nhau
+                                return (
+                                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                    Nhóm có kết quả AI khác nhau - Vui lòng chọn từng nhóm riêng biệt
+                                  </div>
+                                )
+                              }
+                            })()}
                           </>
                         )}
                         {selectedCandidatesList[0]?.stage === "knowledge-test" && (
@@ -1421,8 +1600,36 @@ export default function HRAgentPage() {
                         )}
                         {selectedCandidatesList[0]?.stage === "interview-2" && (
                           <>
-                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailOffer}>Gửi thư chúc mừng trúng tuyển</button>
-                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm text-destructive" onClick={handleBulkEmailReject}>Gửi thư từ chối</button>
+                            {(() => {
+                              // Check if all selected candidates have the same interview result
+                              const interviewResults = selectedCandidatesList.map(c => c.interviewResult || "pending")
+                              const uniqueResults = [...new Set(interviewResults)]
+                              
+                              if (uniqueResults.length === 1) {
+                                const result = uniqueResults[0]
+                                if (result === "passed") {
+                                  return (
+                                    <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailOffer}>Gửi thư chúc mừng trúng tuyển</button>
+                                  )
+                                } else if (result === "rejected") {
+                                  return (
+                                    <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm text-destructive" onClick={handleBulkEmailReject}>Gửi thư từ chối</button>
+                                  )
+                                } else {
+                                  return (
+                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                      Đang chờ kết quả phỏng vấn vòng 2
+                                    </div>
+                                  )
+                                }
+                              } else {
+                                return (
+                                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                    Nhóm có kết quả phỏng vấn khác nhau - Vui lòng chọn từng nhóm riêng biệt
+                                  </div>
+                                )
+                              }
+                            })()}
                           </>
                         )}
                         {selectedCandidatesList[0]?.stage === "hired" && (
@@ -1432,9 +1639,6 @@ export default function HRAgentPage() {
                         )}
                         {selectedCandidatesList[0]?.stage === "rejected" && (
                           <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailReject}>Gửi lại thư từ chối</button>
-                        )}
-                        {selectedCandidatesList[0]?.stage === "bpcm-rejected" && (
-                          <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailReject}>Gửi thư từ chối</button>
                         )}
                       </div>
                     )}
@@ -1524,14 +1728,6 @@ export default function HRAgentPage() {
                     }()}
                   </PopoverContent>
                 </Popover>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={handleConfigNavigation}
-                  className="hover:bg-accent"
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
               </div>
             </div>
           </header>
@@ -1563,10 +1759,11 @@ export default function HRAgentPage() {
                   <SelectContent>
                     <SelectItem value="all">Tất cả</SelectItem>
                     <SelectItem value="cv-new">CV Mới</SelectItem>
-                    <SelectItem value="bpcm-pending">Chờ BPCM Duyệt</SelectItem>
-                    <SelectItem value="bpcm-approved">BPCM Đã Duyệt</SelectItem>
-                    <SelectItem value="bpcm-rejected">BPCM Từ Chối</SelectItem>
                     <SelectItem value="knowledge-test">Vòng Thi Kiến Thức, Kỹ Năng</SelectItem>
+                    <SelectItem value="waiting-exam-schedule">Chờ xếp lịch thi</SelectItem>
+                    <SelectItem value="scheduled-exam">Đã xếp lịch thi</SelectItem>
+                    <SelectItem value="pass-test">Đạt thi</SelectItem>
+                    <SelectItem value="fail-test">Không đạt thi</SelectItem>
                     <SelectItem value="interview-1">Tham Dự Phỏng Vấn Vòng 1</SelectItem>
                     <SelectItem value="interview-2">Tham Dự Phỏng Vấn Vòng 2</SelectItem>
                     <SelectItem value="offer">Nhân Sự Chính Thức</SelectItem>
@@ -1585,7 +1782,24 @@ export default function HRAgentPage() {
                   <SelectContent>
                     <SelectItem value="all">Tất cả</SelectItem>
                     <SelectItem value="suitable">Phù hợp</SelectItem>
+                    <SelectItem value="suitable-form1">Phù hợp (H1)</SelectItem>
+                    <SelectItem value="suitable-form2">Phù hợp (H2)</SelectItem>
                     <SelectItem value="unsuitable">Không phù hợp</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-muted-foreground">Đợt thi</label>
+                <Select value={(filters as any).examBatch || "all"} onValueChange={handleExamBatchFilter}>
+                  <SelectTrigger className="w-64">
+                    <SelectValue placeholder="Chọn đợt thi" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    {examBatches.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>{b.name} ({new Date(b.examDate).toLocaleDateString('vi-VN')})</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1664,9 +1878,10 @@ export default function HRAgentPage() {
               /* Table View */
               <div className="h-full flex flex-col">
                 <div className="flex-1 overflow-auto">
-                  <TableComponent>
-                    <TableHeader>
-                      <TableRow>
+                  <div className="relative">
+                    <TableComponent>
+                      <TableHeader className="sticky top-0 bg-background z-20 border-b shadow-sm">
+                        <TableRow className="bg-background">
                         <TableHead className="w-12">
                           <Checkbox
                             checked={selectedCandidates.size === candidates.length && candidates.length > 0}
@@ -1688,7 +1903,8 @@ export default function HRAgentPage() {
                         </TableHead>
                         <TableHead>Kết quả AI</TableHead>
                         <TableHead>Trạng thái</TableHead>
-                        <TableHead>Kết quả duyệt</TableHead>
+                        <TableHead>Kết quả phỏng vấn</TableHead>
+                        <TableHead>Lịch trình</TableHead>
                         <TableHead className="w-32">Hành động</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1702,7 +1918,11 @@ export default function HRAgentPage() {
                             />
                           </TableCell>
                           <TableCell>
-                            <div className="font-medium cursor-pointer hover:text-primary" onClick={() => handleCandidateClick(candidate)}>
+                            <div 
+                              className="font-medium hover:text-primary" 
+                              onClick={() => handleCandidateClick(candidate)}
+                              style={{ cursor: 'pointer' }}
+                            >
                               {candidate.hoVaTenDem} {candidate.ten}
                             </div>
                             <div className="text-sm text-muted-foreground">{candidate.email}</div>
@@ -1729,6 +1949,8 @@ export default function HRAgentPage() {
                                 : stage === "bpcm-pending" ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
                                 : stage === "bpcm-rejected" ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                                 : stage === "knowledge-test" ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                                : stage === "pass-test" ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                                : stage === "fail-test" ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                                 : stage === "interview-1" ? "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300"
                                 : stage === "interview-2" ? "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300"
                                 : stage === "offer" ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
@@ -1748,11 +1970,76 @@ export default function HRAgentPage() {
                             })()}
                           </TableCell>
                           <TableCell>
-                            {candidate.bpcmReviews && candidate.bpcmReviews.length > 0 ? (
-                              <BPCMReviewStatus reviews={candidate.bpcmReviews} />
-                            ) : (
-                              <span className="text-sm text-muted-foreground">-</span>
-                            )}
+                            {(() => {
+                              // Only show interview result for interview stages
+                              if (candidate.stage === "interview-1" || candidate.stage === "interview-2") {
+                                const result = candidate.interviewResult || "pending"
+                                const getInterviewResultColor = (result: string) => {
+                                  switch (result) {
+                                    case "passed":
+                                      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                                    case "rejected":
+                                      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                                    case "pending":
+                                    default:
+                                      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
+                                  }
+                                }
+                                const getInterviewResultText = (result: string) => {
+                                  switch (result) {
+                                    case "passed":
+                                      return "Đã pass"
+                                    case "rejected":
+                                      return "Từ chối"
+                                    case "pending":
+                                    default:
+                                      return "Đang chờ"
+                                  }
+                                }
+                                return (
+                                  <Select
+                                    value={result}
+                                    onValueChange={(value: "pending" | "passed" | "rejected") => 
+                                      handleInterviewResultChange(candidate.id, value)
+                                    }
+                                  >
+                                    <SelectTrigger className="w-32 h-8">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="pending">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                                          Đang chờ
+                                        </div>
+                                      </SelectItem>
+                                      <SelectItem value="passed">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                                          Đã pass
+                                        </div>
+                                      </SelectItem>
+                                      <SelectItem value="rejected">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-2 h-2 rounded-full bg-red-500" />
+                                          Từ chối
+                                        </div>
+                                      </SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                )
+                              }
+                              return <span className="text-muted-foreground text-sm">-</span>
+                            })()}
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {candidate.schedule ? (
+                                <span className="text-blue-600 font-medium">{candidate.schedule}</span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
@@ -1763,16 +2050,6 @@ export default function HRAgentPage() {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              {(candidate.stage === "cv-new" || candidate.stage === "screening") && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleSendToBPCM(candidate)}
-                                  title="Gửi đi duyệt"
-                                >
-                                  <Send className="h-4 w-4" />
-                                </Button>
-                              )}
                               <div className="relative">
                                 <Button
                                   variant="ghost"
@@ -1804,28 +2081,40 @@ export default function HRAgentPage() {
                                     {/* Context-aware email actions by stage */}
                                   {candidate.stage === "cv-new" && (
                                     <>
-                                      <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
-                                    </>
-                                  )}
-                                  {candidate.stage === "screening" && (
-                                    <>
-                                      <EmailMenuItem candidate={candidate} targetStage="bpcm-pending" baseLabel="gửi BPCM duyệt" type="interview" />
-                                      <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
-                                    </>
-                                  )}
-                                  {candidate.stage === "bpcm-pending" && (
-                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">Chờ phản hồi từ BPCM</div>
-                                  )}
-                                  {candidate.stage === "bpcm-approved" && (
-                                    <>
-                                      <EmailMenuItem candidate={candidate} targetStage="knowledge-test" baseLabel="mời thi kiến thức, kỹ năng" type="interview" />
-                                      <EmailMenuItem candidate={candidate} targetStage="interview-1" baseLabel="mời phỏng vấn vòng 1" type="interview" />
-                                      <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
-                                    </>
-                                  )}
-                                  {candidate.stage === "bpcm-rejected" && (
-                                    <>
-                                      <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                      {/* Phù hợp (H1) - Mời phỏng vấn trực tiếp */}
+                                      {candidate.score >= 70 && (
+                                        <>
+                                          <EmailMenuItem candidate={candidate} targetStage="interview-1" baseLabel="mời phỏng vấn vòng 1" type="interview" />
+                                          <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                        </>
+                                      )}
+                                      
+                                      {/* Phù hợp (H2) - Cần thi kỹ năng */}
+                                      {candidate.score >= 30 && candidate.score < 70 && (
+                                        <>
+                                          <button 
+                                            className="w-full flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground text-foreground"
+                                            onClick={() => {
+                                              // Chuyển sang chờ xếp lịch thi
+                                              updateCandidateStage(candidate.id, "waiting-exam-schedule")
+                                              setEmailMenuOpenId(null)
+                                              toast({
+                                                title: "Chuyển trạng thái thành công",
+                                                description: `Đã chuyển ${candidate.hoVaTenDem} ${candidate.ten} sang "Chờ xếp lịch thi"`,
+                                              })
+                                            }}
+                                          >
+                                            <Users className="h-4 w-4" />
+                                            Sắp xếp lịch thi
+                                          </button>
+                                          <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                        </>
+                                      )}
+                                      
+                                      {/* Không phù hợp */}
+                                      {candidate.score < 30 && (
+                                        <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                      )}
                                     </>
                                   )}
                                   {candidate.stage === "knowledge-test" && (
@@ -1834,16 +2123,69 @@ export default function HRAgentPage() {
                                       <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
                                     </>
                                   )}
+                                  {candidate.stage === "waiting-exam-schedule" && (
+                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                      Chờ xếp lịch thi - Sử dụng "Hành động hàng loạt" để gán vào đợt thi
+                                    </div>
+                                  )}
+                                  {candidate.stage === "scheduled-exam" && (
+                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                      Đã xếp lịch thi - Chờ thi
+                                    </div>
+                                  )}
+                                  {candidate.stage === "pass-test" && (
+                                    <>
+                                      <EmailMenuItem candidate={candidate} targetStage="interview-1" baseLabel="mời phỏng vấn vòng 1" type="interview" />
+                                      <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                    </>
+                                  )}
+                                  {candidate.stage === "fail-test" && (
+                                    <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                  )}
                                   {candidate.stage === "interview-1" && (
                                     <>
-                                      <EmailMenuItem candidate={candidate} targetStage="interview-2" baseLabel="mời phỏng vấn vòng 2" type="interview" />
-                                      <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                      {(() => {
+                                        const interviewResult = candidate.interviewResult || "pending"
+                                        if (interviewResult === "passed") {
+                                          return (
+                                            <EmailMenuItem candidate={candidate} targetStage="interview-2" baseLabel="mời phỏng vấn vòng 2" type="interview" />
+                                          )
+                                        } else if (interviewResult === "rejected") {
+                                          return (
+                                            <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                          )
+                                        } else {
+                                          // pending - no actions available
+                                          return (
+                                            <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                              Đang chờ kết quả phỏng vấn
+                                            </div>
+                                          )
+                                        }
+                                      })()}
                                     </>
                                   )}
                                   {candidate.stage === "interview-2" && (
                                     <>
-                                      <EmailMenuItem candidate={candidate} targetStage="offer-congratulations" baseLabel="thư mời làm việc" type="offer" />
-                                      <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                      {(() => {
+                                        const interviewResult = candidate.interviewResult || "pending"
+                                        if (interviewResult === "passed") {
+                                          return (
+                                            <EmailMenuItem candidate={candidate} targetStage="offer-congratulations" baseLabel="thư mời làm việc" type="offer" />
+                                          )
+                                        } else if (interviewResult === "rejected") {
+                                          return (
+                                            <EmailMenuItem candidate={candidate} targetStage="rejected" baseLabel="thư từ chối" type="reject" />
+                                          )
+                                        } else {
+                                          // pending - no actions available
+                                          return (
+                                            <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                              Đang chờ kết quả phỏng vấn vòng 2
+                                            </div>
+                                          )
+                                        }
+                                      })()}
                                     </>
                                   )}
                                   {candidate.stage === "offer" && (
@@ -1869,6 +2211,7 @@ export default function HRAgentPage() {
                       ))}
                     </TableBody>
                   </TableComponent>
+                  </div>
                 </div>
                 
                 {/* Pagination */}
@@ -1927,10 +2270,6 @@ export default function HRAgentPage() {
           onStatusUpdate={handleStatusUpdate}
           onStageUpdate={handleStageUpdate}
           allCandidates={candidates}
-          onOpenBPCMSelector={(c) => {
-            setBpcmCandidate(c)
-            setBpcmSelectorOpen(true)
-          }}
           onEmailStatusUpdate={(id, key) => {
             // map key to stage buckets for status tracking
             let stageKey = key
@@ -1967,16 +2306,6 @@ export default function HRAgentPage() {
         />
       )}
 
-      {/* BPCM Department Selector Modal */}
-      {bpcmCandidate && (
-        <BPCMDepartmentSelector
-          isOpen={bpcmSelectorOpen}
-          onClose={() => setBpcmSelectorOpen(false)}
-          onSubmit={handleBPCMSubmit}
-          candidateName={`${bpcmCandidate.hoVaTenDem} ${bpcmCandidate.ten}`}
-          candidatePosition={bpcmCandidate.viTri}
-        />
-      )}
 
       {/* Bulk Email Compose Modal */}
       <EmailCompositionModal
@@ -2004,6 +2333,55 @@ export default function HRAgentPage() {
         bulkContent={bulkEmailContent}
         bulkTemplate={bulkEmailTemplate}
       />
+
+      {/* Exam Batch Assignment Modal */}
+      <ExamBatchAssignmentModal
+        isOpen={examBatchAssignmentOpen}
+        onClose={() => setExamBatchAssignmentOpen(false)}
+        onSubmit={handleExamBatchAssignment}
+        selectedCandidates={selectedCandidatesList}
+        availableBatches={examBatches.filter(batch => batch.status === "open")}
+      />
+
+      {/* Status Change Modal */}
+      <Dialog open={statusChangeModalOpen} onOpenChange={setStatusChangeModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Thay đổi trạng thái hàng loạt</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Chọn trạng thái mới</label>
+              <Select value={newStatus} onValueChange={setNewStatus}>
+                <SelectTrigger className="w-full mt-2">
+                  <SelectValue placeholder="Chọn trạng thái..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cv-new">CV Mới</SelectItem>
+                  <SelectItem value="knowledge-test">Vòng Thi Kiến Thức, Kỹ Năng</SelectItem>
+                  <SelectItem value="waiting-exam-schedule">Chờ xếp lịch thi</SelectItem>
+                  <SelectItem value="scheduled-exam">Đã xếp lịch thi</SelectItem>
+                  <SelectItem value="pass-test">Đạt thi</SelectItem>
+                  <SelectItem value="fail-test">Không đạt thi</SelectItem>
+                  <SelectItem value="interview-1">Tham dự phỏng vấn vòng 1</SelectItem>
+                  <SelectItem value="interview-2">Tham dự phỏng vấn vòng 2</SelectItem>
+                  <SelectItem value="offer">Nhân sự chính thức</SelectItem>
+                  <SelectItem value="hired">Đã Tuyển</SelectItem>
+                  <SelectItem value="rejected">Từ chối</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setStatusChangeModalOpen(false)}>
+                Hủy
+              </Button>
+              <Button onClick={handleBulkStatusChange} disabled={!newStatus}>
+                Xác nhận
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       </div>
     </ProtectedRoute>
   )
