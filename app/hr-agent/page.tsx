@@ -1195,7 +1195,7 @@ export default function HRAgentPage() {
   }, [hasUniformStage, getEmailTemplate, getEmailSubject, getEmailContent, selectedCandidatesList])
 
   // Handle bulk email send
-  const handleBulkEmailSend = useCallback(() => {
+  const handleBulkEmailSend = useCallback((emailData?: any) => {
     if (!hasUniformStage) return
     
     selectedCandidatesList.forEach(c => {
@@ -1217,14 +1217,24 @@ export default function HRAgentPage() {
         // Chuyển trạng thái dựa trên target stage
         if (emailStageOverride === "interview-1") {
           updateCandidateStage(c.id, "interview-1" as any)
-          // Update schedule with interview date (bulk email doesn't have specific date)
-          updateCandidateSchedule(c.id, "PV V1: Sẽ thông báo sau")
+          // Update schedule with actual interview date from email modal
+          if (emailData && emailData.interviewDate) {
+            const interviewDate = new Date(emailData.interviewDate).toLocaleDateString('vi-VN')
+            updateCandidateSchedule(c.id, `PV V1: ${interviewDate}`)
+          } else {
+            updateCandidateSchedule(c.id, "PV V1: Sẽ thông báo sau")
+          }
         } else if (emailStageOverride === "interview-2") {
           updateCandidateStage(c.id, "interview-2" as any)
           // Reset interview result to pending when moving to interview-2
           updateCandidateInterviewResult(c.id, "pending")
-          // Update schedule with interview date (bulk email doesn't have specific date)
-          updateCandidateSchedule(c.id, "PV V2: Sẽ thông báo sau")
+          // Update schedule with actual interview date from email modal
+          if (emailData && emailData.interviewDate) {
+            const interviewDate = new Date(emailData.interviewDate).toLocaleDateString('vi-VN')
+            updateCandidateSchedule(c.id, `PV V2: ${interviewDate}`)
+          } else {
+            updateCandidateSchedule(c.id, "PV V2: Sẽ thông báo sau")
+          }
         }
       }
     })
@@ -1594,8 +1604,36 @@ export default function HRAgentPage() {
                         )}
                         {selectedCandidatesList[0]?.stage === "interview-1" && (
                           <>
-                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailInterview2}>Mời phỏng vấn vòng 2</button>
-                            <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm text-destructive" onClick={handleBulkEmailReject}>Gửi thư từ chối</button>
+                            {(() => {
+                              // Check if all selected candidates have the same interview result
+                              const interviewResults = selectedCandidatesList.map(c => c.interviewResult || "pending")
+                              const uniqueResults = [...new Set(interviewResults)]
+                              
+                              if (uniqueResults.length === 1) {
+                                const result = uniqueResults[0]
+                                if (result === "passed") {
+                                  return (
+                                    <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm" onClick={handleBulkEmailInterview2}>Mời phỏng vấn vòng 2</button>
+                                  )
+                                } else if (result === "rejected") {
+                                  return (
+                                    <button className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-sm text-destructive" onClick={handleBulkEmailReject}>Gửi thư từ chối</button>
+                                  )
+                                } else {
+                                  return (
+                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                      Đang chờ kết quả phỏng vấn vòng 1
+                                    </div>
+                                  )
+                                }
+                              } else {
+                                return (
+                                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                    Nhóm có kết quả phỏng vấn khác nhau - Vui lòng chọn từng nhóm riêng biệt
+                                  </div>
+                                )
+                              }
+                            })()}
                           </>
                         )}
                         {selectedCandidatesList[0]?.stage === "interview-2" && (
