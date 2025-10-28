@@ -21,7 +21,8 @@ export interface Candidate {
   kinhNghiemLamViec: number
   lyDoLoai: string
   donViSangLocHS: string
-  score: number
+  score: number // Điểm AI sàng lọc
+  examScore?: number // Điểm thi kỹ năng (nếu có)
   status: "suitable" | "unsuitable" | "suitable-form1" | "suitable-form2"
   stage: "cv-new" | "screening" | "bpcm-pending" | "bpcm-approved" | "bpcm-rejected" | "knowledge-test" | "interview-1" | "interview-2" | "offer" | "hired" | "rejected" | "waiting-exam-schedule" | "scheduled-exam" | "pass-test" | "fail-test"
   interviewResult?: "pending" | "passed" | "rejected"

@@ -61,7 +61,7 @@ const mockExamBatches: ExamBatch[] = [
 
 export default function ExamBatchesPage() {
   const router = useRouter()
-  const { updateCandidateStage, candidates } = useHRData()
+  const { updateCandidateStage, updateCandidateExamScore, candidates } = useHRData()
   
   const [examBatches, setExamBatches] = useState<ExamBatch[]>(mockExamBatches)
   const [examCandidates, setExamCandidates] = useState<any[]>([])
@@ -165,16 +165,34 @@ export default function ExamBatchesPage() {
     const batchId = `batch-${batch.id}`
     const batchCandidates = candidates
       .filter(c => c.examBatchId === batchId)
-      .map(c => ({
-        candidateId: c.id,
-        candidateName: `${c.hoVaTenDem} ${c.ten}`,
-        candidateEmail: c.email,
-        position: c.viTri,
-        assignedAt: c.updatedAt,
-        examResult: c.stage === 'pass-test' ? 'pass' : c.stage === 'fail-test' ? 'fail' : undefined,
-        examScore: c.score,
-        notes: c.notes
-      }))
+      .map(c => {
+        // Determine exam result based on stage
+        let examResult = undefined
+        if (c.stage === 'pass-test') {
+          examResult = 'pass'
+        } else if (c.stage === 'fail-test') {
+          examResult = 'fail'
+        }
+        
+        console.log('Candidate mapping:', {
+          id: c.id,
+          name: `${c.hoVaTenDem} ${c.ten}`,
+          stage: c.stage,
+          score: c.score,
+          examResult: examResult
+        })
+        
+        return {
+          candidateId: c.id,
+          candidateName: `${c.hoVaTenDem} ${c.ten}`,
+          candidateEmail: c.email,
+          position: c.viTri,
+          assignedAt: c.updatedAt,
+          examResult: examResult,
+          examScore: c.examScore, // Use examScore only (can be undefined)
+          notes: c.notes
+        }
+      })
     setExamCandidates(batchCandidates)
     setIsViewCandidatesOpen(true)
   }
@@ -195,16 +213,26 @@ export default function ExamBatchesPage() {
     const batchId = `batch-${batch.id}`
     const batchCandidates = candidates
       .filter(c => c.examBatchId === batchId)
-      .map(c => ({
-        candidateId: c.id,
-        candidateName: `${c.hoVaTenDem} ${c.ten}`,
-        candidateEmail: c.email,
-        position: c.viTri,
-        assignedAt: c.updatedAt,
-        examResult: c.stage === 'pass-test' ? 'pass' : c.stage === 'fail-test' ? 'fail' : undefined,
-        examScore: c.score,
-        notes: c.notes
-      }))
+      .map(c => {
+        // Determine exam result based on stage
+        let examResult = undefined
+        if (c.stage === 'pass-test') {
+          examResult = 'pass'
+        } else if (c.stage === 'fail-test') {
+          examResult = 'fail'
+        }
+        
+        return {
+          candidateId: c.id,
+          candidateName: `${c.hoVaTenDem} ${c.ten}`,
+          candidateEmail: c.email,
+          position: c.viTri,
+          assignedAt: c.updatedAt,
+          examResult: examResult,
+          examScore: c.examScore, // Use examScore only (can be undefined)
+          notes: c.notes
+        }
+      })
     setExamCandidates(batchCandidates)
     setIsResultModalOpen(true)
   }
@@ -231,13 +259,16 @@ export default function ExamBatchesPage() {
 
       setExamCandidates(updatedCandidates)
 
-      // Update candidate stages in main HR system
+      // Update candidate stages and exam scores in main HR system
       updatedCandidates.forEach(candidate => {
         if (candidate.examResult === "pass") {
           updateCandidateStage(candidate.candidateId, "pass-test")
         } else {
           updateCandidateStage(candidate.candidateId, "fail-test")
         }
+        
+        // Update exam score
+        updateCandidateExamScore(candidate.candidateId, candidate.examScore)
       })
 
       toast({
@@ -258,6 +289,7 @@ export default function ExamBatchesPage() {
     // Update main candidates data
     const newStage = result === 'pass' ? 'pass-test' : 'fail-test'
     updateCandidateStage(candidateId, newStage as any)
+    updateCandidateExamScore(candidateId, score)
   }
 
   const handleSaveResults = () => {
@@ -270,7 +302,7 @@ export default function ExamBatchesPage() {
       ))
     }
 
-    // Update candidate stages in main HR system based on exam results
+    // Update candidate stages and exam scores in main HR system based on exam results
     examCandidates.forEach(candidate => {
       if (candidate.examResult === "pass") {
         // Pass test - move to pass-test stage
@@ -278,6 +310,11 @@ export default function ExamBatchesPage() {
       } else if (candidate.examResult === "fail") {
         // Fail test - move to fail-test stage  
         updateCandidateStage(candidate.candidateId, "fail-test")
+      }
+      
+      // Update exam score if available
+      if (candidate.examScore !== undefined) {
+        updateCandidateExamScore(candidate.candidateId, candidate.examScore)
       }
     })
 
@@ -316,7 +353,7 @@ export default function ExamBatchesPage() {
                         <DialogTitle>Tạo đợt thi mới</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
-                        <div>
+                        <div className="space-y-2">
                           <Label htmlFor="name">Tên đợt thi *</Label>
                           <Input
                             id="name"
@@ -325,7 +362,7 @@ export default function ExamBatchesPage() {
                             placeholder="VD: Đợt thi Chuyên môn IT - 25/10/2024"
                           />
                         </div>
-                        <div>
+                        <div className="space-y-2">
                           <Label htmlFor="examDate">Ngày thi *</Label>
                           <Input
                             id="examDate"
@@ -334,7 +371,7 @@ export default function ExamBatchesPage() {
                             onChange={(e) => setNewBatch(prev => ({ ...prev, examDate: e.target.value }))}
                           />
                         </div>
-                        <div>
+                        <div className="space-y-2">
                           <Label htmlFor="format">Hình thức</Label>
                           <Select value={newBatch.format} onValueChange={(value: "online" | "offline") => setNewBatch(prev => ({ ...prev, format: value }))}>
                             <SelectTrigger>
@@ -347,7 +384,7 @@ export default function ExamBatchesPage() {
                           </Select>
                         </div>
                         {newBatch.format === "offline" && (
-                          <div>
+                          <div className="space-y-2">
                             <Label htmlFor="location">Địa điểm</Label>
                             <Input
                               id="location"
@@ -357,7 +394,7 @@ export default function ExamBatchesPage() {
                             />
                           </div>
                         )}
-                        <div>
+                        <div className="space-y-2">
                           <Label htmlFor="maxCandidates">Số lượng tối đa</Label>
                           <Input
                             id="maxCandidates"
@@ -682,31 +719,30 @@ export default function ExamBatchesPage() {
         isOpen={isViewCandidatesOpen}
         onClose={() => setIsViewCandidatesOpen(false)}
         title="Danh sách ứng viên"
-        description={`Đợt thi: ${selectedBatch?.name || ''}`}
       >
         <div className="space-y-4">
-          {/* Batch Info */}
-          <div className="bg-muted/50 rounded-lg p-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
+          {/* Batch Info - Compact */}
+          <div className="bg-muted/50 rounded-lg p-3">
+            <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span className="font-medium">Tên đợt thi:</span>
-                <p className="text-muted-foreground">{selectedBatch?.name}</p>
+                <p className="text-muted-foreground text-xs truncate">{selectedBatch?.name}</p>
               </div>
               <div>
                 <span className="font-medium">Ngày thi:</span>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   {selectedBatch?.examDate ? new Date(selectedBatch.examDate).toLocaleDateString('vi-VN') : ''}
                 </p>
               </div>
               <div>
                 <span className="font-medium">Hình thức:</span>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   {selectedBatch?.format === 'online' ? 'Online' : 'Offline'}
                 </p>
               </div>
               <div>
                 <span className="font-medium">Số lượng:</span>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   {examCandidates.length}/{selectedBatch?.maxCandidates} ứng viên
                 </p>
               </div>
@@ -714,55 +750,53 @@ export default function ExamBatchesPage() {
           </div>
 
           {/* Candidates List Section */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-lg text-foreground">Danh sách ứng viên</h3>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="text-sm">
-                  {examCandidates.length} ứng viên
-                </Badge>
-              </div>
+              <h3 className="font-semibold text-base text-foreground">Danh sách ứng viên</h3>
+              <Badge variant="secondary" className="text-xs">
+                {examCandidates.length} ứng viên
+              </Badge>
             </div>
             
             {examCandidates.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Users className="h-8 w-8 text-muted-foreground" />
+              <div className="text-center py-8">
+                <div className="w-12 h-12 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Users className="h-6 w-6 text-muted-foreground" />
                 </div>
-                <h4 className="font-medium text-foreground mb-2">Chưa có ứng viên</h4>
+                <h4 className="font-medium text-foreground mb-1">Chưa có ứng viên</h4>
                 <p className="text-sm text-muted-foreground">Chưa có ứng viên nào được gán vào đợt thi này</p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+              <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto pr-2">
                 {examCandidates.map((candidate, index) => (
-                  <div key={candidate.candidateId} className="group relative bg-card border border-border rounded-xl p-5 hover:shadow-md hover:border-primary/20 transition-all duration-200">
-                    {/* Header with candidate info */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center text-sm font-bold text-primary">
+                  <div key={candidate.candidateId} className="group relative bg-card border border-border rounded-lg p-3 hover:shadow-md hover:border-primary/20 transition-all duration-200">
+                    {/* Header with candidate info - Compact */}
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center text-xs font-bold text-primary">
                           {index + 1}
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <h4 
-                            className="font-semibold text-base text-foreground mb-1 cursor-pointer hover:text-primary transition-colors"
+                            className="font-semibold text-sm text-foreground mb-1 cursor-pointer hover:text-primary transition-colors truncate"
                             onClick={() => handleCandidateClick(candidate)}
                             style={{ cursor: 'pointer' }}
                           >
                             {candidate.candidateName}
                           </h4>
-                          <p className="text-sm text-muted-foreground">{candidate.candidateEmail}</p>
-                          <p className="text-xs text-primary font-medium">{candidate.position}</p>
+                          <p className="text-xs text-muted-foreground truncate">{candidate.candidateEmail}</p>
+                          <p className="text-xs text-primary font-medium truncate">{candidate.position}</p>
                         </div>
                       </div>
                       
-                      {/* Result status */}
-                      <div className="flex items-center gap-2">
+                      {/* Result status - Compact */}
+                      <div className="flex items-center gap-1">
                         {candidate.examResult ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
                             {candidate.examResult === 'pass' ? (
-                              <CheckCircle className="h-5 w-5 text-green-600" />
+                              <CheckCircle className="h-3 w-3 text-green-600" />
                             ) : (
-                              <XCircle className="h-5 w-5 text-red-600" />
+                              <XCircle className="h-3 w-3 text-red-600" />
                             )}
                             <Badge className={`text-xs font-medium ${
                               candidate.examResult === 'pass' 
@@ -780,34 +814,40 @@ export default function ExamBatchesPage() {
                       </div>
                     </div>
                     
-                    {/* Details grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div className="space-y-1">
+                    {/* Details grid - Compact */}
+                    <div className="grid grid-cols-1 gap-1 text-xs">
+                      <div className="flex justify-between">
                         <span className="font-medium text-foreground">Ngày gán:</span>
-                        <p className="text-muted-foreground">
+                        <span className="text-muted-foreground">
                           {new Date(candidate.assignedAt).toLocaleDateString('vi-VN')}
-                        </p>
+                        </span>
                       </div>
                       
-                      {candidate.examScore && (
-                        <div className="space-y-1">
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
                           <span className="font-medium text-foreground">Điểm số:</span>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-muted/50 rounded-full h-2">
-                              <div 
-                                className="bg-primary h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${candidate.examScore}%` }}
-                              />
-                            </div>
-                            <span className="text-sm font-medium text-foreground">{candidate.examScore}/100</span>
-                          </div>
+                          <span className="text-sm font-medium text-foreground">
+                            {candidate.examScore ? `${candidate.examScore}/100` : '0/0'}
+                          </span>
                         </div>
-                      )}
+                        {candidate.examScore ? (
+                          <div className="flex-1 bg-muted/50 rounded-full h-1">
+                            <div 
+                              className="bg-primary h-1 rounded-full transition-all duration-300"
+                              style={{ width: `${candidate.examScore}%` }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex-1 bg-muted/50 rounded-full h-1">
+                            <div className="bg-muted h-1 rounded-full" />
+                          </div>
+                        )}
+                      </div>
                       
                       {candidate.notes && (
-                        <div className="md:col-span-2 space-y-1">
+                        <div className="space-y-1">
                           <span className="font-medium text-foreground">Ghi chú:</span>
-                          <p className="text-muted-foreground bg-muted/30 rounded-lg p-2 text-sm">
+                          <p className="text-muted-foreground bg-muted/30 rounded p-1.5 text-xs line-clamp-1">
                             {candidate.notes}
                           </p>
                         </div>
@@ -815,7 +855,7 @@ export default function ExamBatchesPage() {
                     </div>
                     
                     {/* Hover effect border */}
-                    <div className="absolute inset-0 rounded-xl border-2 border-primary/0 group-hover:border-primary/20 transition-colors duration-200 pointer-events-none" />
+                    <div className="absolute inset-0 rounded-lg border-2 border-primary/0 group-hover:border-primary/20 transition-colors duration-200 pointer-events-none" />
                   </div>
                 ))}
               </div>
@@ -831,7 +871,7 @@ export default function ExamBatchesPage() {
             <DialogTitle>Chỉnh sửa đợt thi</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="edit-name">Tên đợt thi</Label>
               <Input
                 id="edit-name"
@@ -847,7 +887,7 @@ export default function ExamBatchesPage() {
                 }}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="edit-date">Ngày thi</Label>
               <Input
                 id="edit-date"
@@ -895,6 +935,8 @@ export default function ExamBatchesPage() {
           onNotesUpdate={() => {}}
           onStatusUpdate={() => {}}
           onStageUpdate={() => {}}
+          onScheduleUpdate={() => {}}
+          onInterviewResultUpdate={() => {}}
           allCandidates={[]}
           onEmailStatusUpdate={() => {}}
         />

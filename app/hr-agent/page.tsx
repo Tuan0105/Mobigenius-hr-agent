@@ -2269,6 +2269,8 @@ export default function HRAgentPage() {
           onNotesUpdate={handleNotesUpdate}
           onStatusUpdate={handleStatusUpdate}
           onStageUpdate={handleStageUpdate}
+          onScheduleUpdate={updateCandidateSchedule}
+          onInterviewResultUpdate={updateCandidateInterviewResult}
           allCandidates={candidates}
           onEmailStatusUpdate={(id, key) => {
             // map key to stage buckets for status tracking

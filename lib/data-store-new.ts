@@ -265,6 +265,7 @@ export function useHRData() {
     stage: "all",
     status: "all",
     search: "",
+    examBatch: "all",
   })
   const [isLoading, setIsLoading] = useState(false)
 
@@ -410,7 +411,7 @@ export function useHRData() {
     }
 
     candidates.forEach(candidate => {
-      stats[candidate.stage] = (stats[candidate.stage] || 0) + 1
+      stats[candidate.stage as keyof typeof stats] = (stats[candidate.stage as keyof typeof stats] || 0) + 1
     })
 
     return stats

@@ -31,6 +31,8 @@ interface CandidateDetailModalProps {
   onNotesUpdate?: (candidateId: number, notes: string) => void
   onStatusUpdate?: (candidateId: number, status: Candidate["status"]) => void
   onStageUpdate?: (candidateId: number, stage: string) => void
+  onScheduleUpdate?: (candidateId: number, schedule: string) => void
+  onInterviewResultUpdate?: (candidateId: number, result: "pending" | "passed" | "rejected") => void
   allCandidates?: Candidate[]
   // Trigger BPCM department selector from parent
   onOpenBPCMSelector?: (candidate: Candidate) => void
@@ -49,6 +51,8 @@ export function CandidateDetailModal({
   onNotesUpdate,
   onStatusUpdate,
   onStageUpdate,
+  onScheduleUpdate,
+  onInterviewResultUpdate,
   allCandidates = [],
   onOpenBPCMSelector,
   onBPCMApprove,
@@ -68,9 +72,12 @@ export function CandidateDetailModal({
   const getStatusColor = (status: string) => {
     switch (status) {
       case "suitable":
-        return "bg-success text-success-foreground"
+      case "suitable-form1":
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+      case "suitable-form2":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
       case "unsuitable":
-        return "bg-destructive text-destructive-foreground"
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
       default:
         return "bg-muted text-muted-foreground"
     }
@@ -80,11 +87,22 @@ export function CandidateDetailModal({
     switch (status) {
       case "suitable":
         return "Phù hợp"
+      case "suitable-form1":
+        return "Phù hợp (H1)"
+      case "suitable-form2":
+        return "Phù hợp (H2)"
       case "unsuitable":
         return "Không phù hợp"
       default:
         return "Chưa đánh giá"
     }
+  }
+
+  // Helper function to get AI status from score
+  const getAIStatusFromScore = (score: number): "suitable" | "unsuitable" | "suitable-form1" | "suitable-form2" => {
+    if (score < 30) return "unsuitable"
+    if (score >= 30 && score < 70) return "suitable-form2" // Hình thức 2 - Cần thi kỹ năng
+    return "suitable-form1" // Hình thức 1 - Tới phỏng vấn ngay
   }
 
   // Function to download Excel file
@@ -163,25 +181,71 @@ export function CandidateDetailModal({
 
   const handleEmailSend = (emailData: any) => {
     console.log("Email sent:", emailData)
-    onSendEmail(emailType)
-
-    // Determine next stage based on current stage and templateType
+    
+    // Determine next stage based on current stage and templateType FIRST
     if (onStageUpdate) {
       const currentStage = candidate.stage
       const tpl = templateType
       let nextStage: Candidate["stage"] | undefined
 
-      if (currentStage === "bpcm-approved") {
+      // CV Mới - Actions based on AI result
+      if (currentStage === "cv-new") {
+        if (emailType === "reject" || tpl === "reject") {
+          nextStage = "rejected"
+        } else if (tpl === "interview-round-1") {
+          nextStage = "interview-1"
+        }
+      }
+      // Chờ xếp lịch thi - không có action email trực tiếp
+      else if (currentStage === "waiting-exam-schedule") {
+        // No direct email actions
+      }
+      // Đã xếp lịch thi - không có action email trực tiếp
+      else if (currentStage === "scheduled-exam") {
+        // No direct email actions
+      }
+      // Đạt thi
+      else if (currentStage === "pass-test") {
+        if (emailType === "reject" || tpl === "reject") {
+          nextStage = "rejected"
+        } else if (tpl === "interview-round-1") {
+          nextStage = "interview-1"
+        }
+      }
+      // Không đạt thi
+      else if (currentStage === "fail-test") {
+        if (emailType === "reject" || tpl === "reject") {
+          nextStage = "rejected"
+        }
+      }
+      // BPCM approved
+      else if (currentStage === "bpcm-approved") {
         if (tpl === "interview-knowledge-test") nextStage = "knowledge-test"
         else if (tpl === "interview-round-1") nextStage = "interview-1"
         else if (emailType === "reject" || tpl === "reject") nextStage = "rejected"
-      } else if (currentStage === "knowledge-test") {
+      } 
+      // Knowledge test
+      else if (currentStage === "knowledge-test") {
         if (tpl === "interview-round-1") nextStage = "interview-1"
-      } else if (currentStage === "interview-1") {
-        if (tpl === "interview-round-2") nextStage = "interview-2"
-      } else if (currentStage === "interview-2") {
+      } 
+      // Interview 1
+      else if (currentStage === "interview-1") {
+        if (tpl === "interview-round-2") {
+          nextStage = "interview-2"
+          // Reset interview result to pending when moving to interview-2
+          if (onInterviewResultUpdate) {
+            onInterviewResultUpdate(candidate.id, "pending")
+          }
+        }
+        else if (emailType === "reject" || tpl === "reject") nextStage = "rejected"
+      } 
+      // Interview 2
+      else if (currentStage === "interview-2") {
         if (tpl === "offer-congratulations" || emailType === "offer") nextStage = "offer"
-      } else if (currentStage === "offer") {
+        else if (emailType === "reject" || tpl === "reject") nextStage = "rejected"
+      } 
+      // Offer stage
+      else if (currentStage === "offer") {
         // Stay in offer; emails can be resent (congrats) or send health-check
         nextStage = undefined
       }
@@ -190,6 +254,25 @@ export function CandidateDetailModal({
         onStageUpdate(candidate.id, nextStage)
       }
     }
+
+    // Update schedule based on email data and stage transition
+    if (emailData && emailData.interviewDate && onScheduleUpdate) {
+      const interviewDate = new Date(emailData.interviewDate).toLocaleDateString('vi-VN')
+      let scheduleText = ""
+      
+      if (templateType === "interview-round-1") {
+        scheduleText = `PV V1: ${interviewDate}`
+      } else if (templateType === "interview-round-2") {
+        scheduleText = `PV V2: ${interviewDate}`
+      }
+      
+      if (scheduleText) {
+        onScheduleUpdate(candidate.id, scheduleText)
+      }
+    }
+
+    // Call onSendEmail AFTER stage update
+    onSendEmail(emailType)
 
     // Mark specific email action as sent (for menu labels)
     if (onEmailStatusUpdate) {
@@ -514,7 +597,116 @@ export function CandidateDetailModal({
                       )}
                     </div>
                     <div className="space-y-2">
-                      {/* AI đã tự động đánh giá - không cần nút hành động thủ công */}
+                      {/* CV Mới - Actions based on AI result */}
+                      {candidate.stage === "cv-new" && (
+                        <>
+                          {/* Phù hợp (H1) - Mời phỏng vấn trực tiếp */}
+                          {candidate.score >= 70 && (
+                            <>
+                              <Button className="w-full gap-2" onClick={() => handleEmailAction("interview", "interview-round-1")}>
+                                <UserCheck className="h-4 w-4" />
+                                Mời phỏng vấn vòng 1
+                              </Button>
+                              <Button
+                                className="w-full gap-2"
+                                variant="destructive"
+                                onClick={() => handleEmailAction("reject", "reject")}
+                              >
+                                <UserX className="h-4 w-4" />
+                                Gửi thư từ chối
+                              </Button>
+                            </>
+                          )}
+                          
+                          {/* Phù hợp (H2) - Cần thi kỹ năng */}
+                          {candidate.score >= 30 && candidate.score < 70 && (
+                            <>
+                              <Button 
+                                className="w-full gap-2" 
+                                onClick={() => {
+                                  if (onStageUpdate) {
+                                    onStageUpdate(candidate.id, "waiting-exam-schedule")
+                                    onClose()
+                                  }
+                                }}
+                              >
+                                <UserCheck className="h-4 w-4" />
+                                Sắp xếp lịch thi
+                              </Button>
+                              <Button
+                                className="w-full gap-2"
+                                variant="destructive"
+                                onClick={() => handleEmailAction("reject", "reject")}
+                              >
+                                <UserX className="h-4 w-4" />
+                                Gửi thư từ chối
+                              </Button>
+                            </>
+                          )}
+                          
+                          {/* Không phù hợp */}
+                          {candidate.score < 30 && (
+                            <Button
+                              className="w-full gap-2"
+                              variant="destructive"
+                              onClick={() => handleEmailAction("reject", "reject")}
+                            >
+                              <UserX className="h-4 w-4" />
+                              Gửi thư từ chối
+                            </Button>
+                          )}
+                        </>
+                      )}
+
+                      {/* Chờ xếp lịch thi */}
+                      {candidate.stage === "waiting-exam-schedule" && (
+                        <div className="space-y-2">
+                          <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                            <p className="text-sm font-medium text-yellow-800">Chờ xếp lịch thi</p>
+                            <p className="text-xs text-yellow-700">Sử dụng "Hành động hàng loạt" để gán vào đợt thi</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Đã xếp lịch thi */}
+                      {candidate.stage === "scheduled-exam" && (
+                        <div className="space-y-2">
+                          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <p className="text-sm font-medium text-blue-800">Đã xếp lịch thi</p>
+                            <p className="text-xs text-blue-700">Chờ thi theo lịch đã sắp xếp</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Đạt thi */}
+                      {candidate.stage === "pass-test" && (
+                        <>
+                          <Button className="w-full gap-2" onClick={() => handleEmailAction("interview", "interview-round-1")}>
+                            <UserCheck className="h-4 w-4" />
+                            Mời phỏng vấn vòng 1
+                          </Button>
+                          <Button
+                            className="w-full gap-2"
+                            variant="destructive"
+                            onClick={() => handleEmailAction("reject", "reject")}
+                          >
+                            <UserX className="h-4 w-4" />
+                            Gửi thư từ chối
+                          </Button>
+                        </>
+                      )}
+
+                      {/* Không đạt thi */}
+                      {candidate.stage === "fail-test" && (
+                        <Button
+                          className="w-full gap-2"
+                          variant="destructive"
+                          onClick={() => handleEmailAction("reject", "reject")}
+                        >
+                          <UserX className="h-4 w-4" />
+                          Gửi thư từ chối
+                        </Button>
+                      )}
 
                       {/* BPCM actions in detail view */}
                       {candidate.stage === "bpcm-pending" && (onBPCMApprove || onBPCMReject) && (
@@ -591,35 +783,69 @@ export function CandidateDetailModal({
 
                       {candidate.stage === "interview-1" && (
                         <>
-                          <Button className="w-full gap-2" onClick={() => handleEmailAction("interview", "interview-round-2")}>
-                            <UserCheck className="h-4 w-4" />
-                            Mời tham gia phỏng vấn vòng 2
-                          </Button>
-                          <Button
-                            className="w-full gap-2"
-                            variant="destructive"
-                            onClick={() => handleEmailAction("reject", "reject")}
-                          >
-                            <UserX className="h-4 w-4" />
-                            Từ chối
-                          </Button>
+                          {(() => {
+                            const interviewResult = candidate.interviewResult || "pending"
+                            if (interviewResult === "passed") {
+                              return (
+                                <Button className="w-full gap-2" onClick={() => handleEmailAction("interview", "interview-round-2")}>
+                                  <UserCheck className="h-4 w-4" />
+                                  Mời tham gia phỏng vấn vòng 2
+                                </Button>
+                              )
+                            } else if (interviewResult === "rejected") {
+                              return (
+                                <Button
+                                  className="w-full gap-2"
+                                  variant="destructive"
+                                  onClick={() => handleEmailAction("reject", "reject")}
+                                >
+                                  <UserX className="h-4 w-4" />
+                                  Từ chối
+                                </Button>
+                              )
+                            } else {
+                              // pending - no actions available
+                              return (
+                                <div className="text-center py-4">
+                                  <p className="text-sm text-muted-foreground">Đang chờ kết quả phỏng vấn vòng 1</p>
+                                </div>
+                              )
+                            }
+                          })()}
                         </>
                       )}
 
                       {candidate.stage === "interview-2" && (
                         <>
-                          <Button className="w-full gap-2" onClick={() => handleEmailAction("offer", "offer-congratulations")}>
-                            <UserCheck className="h-4 w-4" />
-                            Gửi thư mời làm việc
-                          </Button>
-                          <Button
-                            className="w-full gap-2"
-                            variant="destructive"
-                            onClick={() => handleEmailAction("reject", "reject")}
-                          >
-                            <UserX className="h-4 w-4" />
-                            Từ chối
-                          </Button>
+                          {(() => {
+                            const interviewResult = candidate.interviewResult || "pending"
+                            if (interviewResult === "passed") {
+                              return (
+                                <Button className="w-full gap-2" onClick={() => handleEmailAction("offer", "offer-congratulations")}>
+                                  <UserCheck className="h-4 w-4" />
+                                  Gửi thư mời làm việc
+                                </Button>
+                              )
+                            } else if (interviewResult === "rejected") {
+                              return (
+                                <Button
+                                  className="w-full gap-2"
+                                  variant="destructive"
+                                  onClick={() => handleEmailAction("reject", "reject")}
+                                >
+                                  <UserX className="h-4 w-4" />
+                                  Từ chối
+                                </Button>
+                              )
+                            } else {
+                              // pending - no actions available
+                              return (
+                                <div className="text-center py-4">
+                                  <p className="text-sm text-muted-foreground">Đang chờ kết quả phỏng vấn vòng 2</p>
+                                </div>
+                              )
+                            }
+                          })()}
                         </>
                       )}
 
@@ -710,8 +936,15 @@ export function CandidateDetailModal({
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">Điểm tổng:</span>
                         {(() => {
-                          const aiStatus = candidate.score >= 50 ? "suitable" : "unsuitable"
+                          const aiStatus = getAIStatusFromScore(candidate.score)
                           return <Badge className={getStatusColor(aiStatus)}>{candidate.score}/100</Badge>
+                        })()}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Kết quả AI:</span>
+                        {(() => {
+                          const aiStatus = getAIStatusFromScore(candidate.score)
+                          return <Badge className={getStatusColor(aiStatus)}>{getStatusText(aiStatus)}</Badge>
                         })()}
                       </div>
                       <div className="space-y-2">

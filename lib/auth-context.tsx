@@ -13,69 +13,79 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [user, setUser] = useState<{ username: string; email: string } | null>(null)
+  // COMMENTED OUT FOR DEVELOPMENT - Always authenticated
+  const [isAuthenticated, setIsAuthenticated] = useState(true) // Changed from false to true
+  const [user, setUser] = useState<{ username: string; email: string; role: 'hr' | 'bpcm' } | null>({
+    username: "hragent",
+    email: "hragent@mobifone.vn",
+    role: "hr" as const
+  }) // Set default user
   const router = useRouter()
 
   useEffect(() => {
+    // COMMENTED OUT FOR DEVELOPMENT - Skip login check
     // Check if user is already logged in (from localStorage)
-    const savedAuth = localStorage.getItem("auth")
-    if (savedAuth) {
-      const authData = JSON.parse(savedAuth)
-      setIsAuthenticated(true)
-      setUser(authData.user)
-    }
+    // const savedAuth = localStorage.getItem("auth")
+    // if (savedAuth) {
+    //   const authData = JSON.parse(savedAuth)
+    //   setIsAuthenticated(true)
+    //   setUser(authData.user)
+    // }
   }, [])
 
   const login = (username: string, password: string): boolean => {
+    // COMMENTED OUT FOR DEVELOPMENT - Always return true
+    return true
+    
     // Check credentials
-    if (username === "hragent" && password === "1") {
-      const userData = {
-        username: "hragent",
-        email: "hragent@mobifone.vn",
-        role: "hr" as const
-      }
-      
-      setIsAuthenticated(true)
-      setUser(userData)
-      
-      // Save to localStorage
-      localStorage.setItem("auth", JSON.stringify({
-        isAuthenticated: true,
-        user: userData
-      }))
-      
-      // Redirect to HR page
-      router.push("/hr-agent")
-      return true
-    } else if (username === "bpcm" && password === "1") {
-      const userData = {
-        username: "bpcm",
-        email: "bpcm@mobifone.vn",
-        role: "bpcm" as const
-      }
-      
-      setIsAuthenticated(true)
-      setUser(userData)
-      
-      // Save to localStorage
-      localStorage.setItem("auth", JSON.stringify({
-        isAuthenticated: true,
-        user: userData
-      }))
-      
-      // Redirect to BPCM page
-      router.push("/bpcm")
-      return true
-    }
-    return false
+    // if (username === "hragent" && password === "1") {
+    //   const userData = {
+    //     username: "hragent",
+    //     email: "hragent@mobifone.vn",
+    //     role: "hr" as const
+    //   }
+    //   
+    //   setIsAuthenticated(true)
+    //   setUser(userData)
+    //   
+    //   // Save to localStorage
+    //   localStorage.setItem("auth", JSON.stringify({
+    //     isAuthenticated: true,
+    //     user: userData
+    //   }))
+    //   
+    //   // Redirect to HR page
+    //   router.push("/hr-agent")
+    //   return true
+    // } else if (username === "bpcm" && password === "1") {
+    //   const userData = {
+    //     username: "bpcm",
+    //     email: "bpcm@mobifone.vn",
+    //     role: "bpcm" as const
+    //   }
+    //   
+    //   setIsAuthenticated(true)
+    //   setUser(userData)
+    //   
+    //   // Save to localStorage
+    //   localStorage.setItem("auth", JSON.stringify({
+    //     isAuthenticated: true,
+    //     user: userData
+    //   }))
+    //   
+    //   // Redirect to BPCM page
+    //   router.push("/bpcm")
+    //   return true
+    // }
+    // return false
   }
 
   const logout = () => {
-    setIsAuthenticated(false)
-    setUser(null)
-    localStorage.removeItem("auth")
-    router.push("/login")
+    // COMMENTED OUT FOR DEVELOPMENT - Do nothing
+    // setIsAuthenticated(false)
+    // setUser(null)
+    // localStorage.removeItem("auth")
+    // router.push("/login")
   }
 
   return (

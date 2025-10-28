@@ -79,8 +79,8 @@ const initialCandidates: Candidate[] = [
     kinhNghiemLamViec: 6,
     lyDoLoai: "",
     donViSangLocHS: "HR Team",
-    score: 45,
-    status: "unsuitable",
+    score: 65,
+    status: "suitable-form2",
     stage: "cv-new",
     skills: ["Figma", "Adobe XD", "Sketch", "Photoshop", "Illustrator"],
     notes: "Designer có kinh nghiệm tốt với UI/UX",
@@ -2681,6 +2681,7 @@ export function useHRData() {
     stage: "all",
     status: "all",
     search: "",
+    examBatch: "all",
   })
   const [isLoading, setIsLoading] = useState(false)
 
