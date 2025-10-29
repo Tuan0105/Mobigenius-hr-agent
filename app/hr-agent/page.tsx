@@ -1091,8 +1091,33 @@ export default function HRAgentPage() {
 
   // Table view data processing
   const sortedCandidates = [...candidates].sort((a, b) => {
-    const aValue = a[sortField]
-    const bValue = b[sortField]
+    let aValue = a[sortField]
+    let bValue = b[sortField]
+    
+    // Special handling for schedule field - extract date for sorting
+    if (sortField === "schedule") {
+      const extractDate = (schedule: string | undefined): Date | null => {
+        if (!schedule) return null
+        // Extract date from formats like "PV V1: 25/11/2024", "Thi: 30/10/2024"
+        const dateMatch = schedule.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+        if (dateMatch) {
+          const [, day, month, year] = dateMatch
+          return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+        }
+        return null
+      }
+      
+      const aDate = extractDate(aValue as string)
+      const bDate = extractDate(bValue as string)
+      
+      if (!aDate && !bDate) return 0
+      if (!aDate) return 1
+      if (!bDate) return -1
+      
+      if (aDate < bDate) return sortDirection === "asc" ? -1 : 1
+      if (aDate > bDate) return sortDirection === "asc" ? 1 : -1
+      return 0
+    }
     
     if (aValue === undefined && bValue === undefined) return 0
     if (aValue === undefined) return 1
@@ -1320,6 +1345,10 @@ export default function HRAgentPage() {
 
   const handleSortUpdatedAt = useCallback(() => {
     handleSort("updatedAt")
+  }, [handleSort])
+
+  const handleSortSchedule = useCallback(() => {
+    handleSort("schedule")
   }, [handleSort])
 
   const handlePaginationPrevious = useCallback(() => {
@@ -1942,7 +1971,12 @@ export default function HRAgentPage() {
                         <TableHead>Kết quả AI</TableHead>
                         <TableHead>Trạng thái</TableHead>
                         <TableHead>Kết quả phỏng vấn</TableHead>
-                        <TableHead>Lịch trình</TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={handleSortSchedule}
+                        >
+                          Lịch trình
+                        </TableHead>
                         <TableHead className="w-32">Hành động</TableHead>
                       </TableRow>
                     </TableHeader>
