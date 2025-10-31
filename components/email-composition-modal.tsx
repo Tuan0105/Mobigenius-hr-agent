@@ -116,6 +116,7 @@ export function EmailCompositionModal({
   const [isLoading, setIsLoading] = useState(false)
   const [showInterviewPicker, setShowInterviewPicker] = useState(false)
   const [showConfirmPicker, setShowConfirmPicker] = useState(false)
+  const [selectedCouncilId, setSelectedCouncilId] = useState<string>("none")
   
   // Use ref to track if we've already initialized
   const hasInitialized = useRef(false)
@@ -296,7 +297,7 @@ export function EmailCompositionModal({
                 <div className="space-y-2">
                   <Label>Người/Hội đồng phỏng vấn</Label>
                   <Select value={selectedCouncilId} onValueChange={(val) => {
-                    setSelectedCouncilId(val)
+                    setSelectedCouncilId(val) 
                   }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Chọn người/hội đồng" />
