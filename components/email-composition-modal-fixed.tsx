@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { useConfigData } from "@/lib/config-store"
+import { useHRData } from "@/lib/data-store"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
@@ -61,7 +62,9 @@ export function EmailCompositionModal({
   bulkTemplate = ""
 }: EmailCompositionModalProps) {
   const { toast } = useToast()
-  const { getTemplateByType } = useConfigData()
+  const { getTemplateByType, councils, positions, getCouncilsByPosition } = useConfigData()
+  const { updateCandidateCouncil } = useHRData()
+  const [selectedCouncilId, setSelectedCouncilId] = useState<string>("none")
   
   // Memoize initial email data to prevent unnecessary re-renders
   const initialEmailData = useMemo(() => {
@@ -107,9 +110,20 @@ export function EmailCompositionModal({
   const [showInterviewPicker, setShowInterviewPicker] = useState(false)
   const [showConfirmPicker, setShowConfirmPicker] = useState(false)
 
+  // Suggest councils by candidate position
+  const suggestedCouncils = useMemo(() => {
+    if (!candidate) return councils
+    const pos = positions.find(p => p.name === candidate.position)
+    if (!pos) return councils
+    const byPos = getCouncilsByPosition(pos.id)
+    const others = councils.filter(c => !byPos.some(x => x.id === c.id))
+    return [...byPos, ...others]
+  }, [candidate, councils, positions, getCouncilsByPosition])
+
   // Initialize email data when modal opens
   useEffect(() => {
     if (isOpen) {
+      setSelectedCouncilId("none")
       setEmailData(initialEmailData)
       
       // Set confirm date to 5 days from now
@@ -259,6 +273,47 @@ export function EmailCompositionModal({
           {/* Left Column - Email Composition */}
           <div className="w-1/2 p-6 border-r overflow-y-auto">
             <div className="space-y-6">
+              {/* Council Selector */}
+              {emailType === "interview" && (
+                <div className="space-y-2">
+                  <Label>Người/Hội đồng phỏng vấn</Label>
+                  <Select value={selectedCouncilId} onValueChange={(val) => {
+                    setSelectedCouncilId(val)
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn người/hội đồng" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Tự chọn người nhận</SelectItem>
+                      {suggestedCouncils.map(c => (
+                        <SelectItem key={c.id} value={c.id.toString()}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center gap-2">
+                    {candidate && (
+                      <p className="text-xs text-muted-foreground">Gợi ý theo vị trí: {candidate.position}</p>
+                    )}
+                    <div className="ml-auto" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={() => {
+                        if (!candidate) return
+                        if (selectedCouncilId === "none") {
+                          updateCandidateCouncil(candidate.id, undefined)
+                          // Optional toast left out here; keep UI quiet
+                        } else {
+                          updateCandidateCouncil(candidate.id, parseInt(selectedCouncilId, 10))
+                        }
+                      }}
+                    >Lưu hội đồng</Button>
+                  </div>
+                </div>
+              )}
               {/* Email Fields */}
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">

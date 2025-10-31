@@ -6,6 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -28,7 +29,8 @@ import {
   Save,
   Trash2,
   Underline,
-  Users
+  Users,
+  X
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useCallback, useRef, useState } from "react"
@@ -48,6 +50,224 @@ const mockEmailTemplates = [
   { id: 3, name: "Thư gửi offer", type: "offer" },
   { id: 4, name: "Thư xác nhận nhận việc", type: "confirmation" },
 ]
+
+function CouncilsManager() {
+  const { councils, positions, addCouncil, updateCouncil, deleteCouncil } = useConfigData()
+  const { toast } = useToast()
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingCouncilId, setEditingCouncilId] = useState<number | null>(null)
+  const [councilName, setCouncilName] = useState("")
+  const [selectedPositionIds, setSelectedPositionIds] = useState<number[]>([])
+  const [memberName, setMemberName] = useState("")
+  const [memberEmail, setMemberEmail] = useState("")
+  const [members, setMembers] = useState<Array<{ name: string; email: string }>>([])
+
+  const resetModal = () => {
+    setEditingCouncilId(null)
+    setCouncilName("")
+    setSelectedPositionIds([])
+    setMemberName("")
+    setMemberEmail("")
+    setMembers([])
+  }
+
+  const openCreate = () => {
+    resetModal()
+    setIsModalOpen(true)
+  }
+
+  const openEdit = (id: number) => {
+    const c = councils.find(x => x.id === id)
+    if (!c) return
+    setEditingCouncilId(id)
+    setCouncilName(c.name)
+    setSelectedPositionIds(c.positionIds)
+    setMembers(c.members)
+    setIsModalOpen(true)
+  }
+
+  const togglePosition = (id: number, checked: boolean) => {
+    setSelectedPositionIds(prev => checked ? [...prev, id] : prev.filter(x => x !== id))
+  }
+
+  const addMember = () => {
+    const name = memberName.trim()
+    const email = memberEmail.trim()
+    if (!name || !email) {
+      toast({ title: "Thiếu thông tin", description: "Nhập tên và email thành viên" })
+      return
+    }
+    setMembers(prev => [...prev, { name, email }])
+    setMemberName("")
+    setMemberEmail("")
+  }
+
+  const removeMember = (index: number) => {
+    setMembers(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const saveCouncil = () => {
+    if (!councilName.trim()) {
+      toast({ title: "Thiếu tên hội đồng", description: "Vui lòng nhập tên hội đồng" })
+      return
+    }
+    if (members.length === 0) {
+      toast({ title: "Thiếu thành viên", description: "Thêm ít nhất 1 thành viên" })
+      return
+    }
+    const payload = {
+      name: councilName.trim(),
+      members,
+      positionIds: selectedPositionIds,
+    }
+    if (editingCouncilId) {
+      updateCouncil(editingCouncilId, payload)
+      toast({ title: "Đã cập nhật hội đồng", description: councilName.trim() })
+    } else {
+      addCouncil(payload as any)
+      toast({ title: "Đã tạo hội đồng", description: councilName.trim() })
+    }
+    setIsModalOpen(false)
+    resetModal()
+  }
+
+  const summarizeMembers = (arr: Array<{ name: string }>) => {
+    if (arr.length === 0) return "-"
+    if (arr.length === 1) return arr[0].name
+    if (arr.length === 2) return `${arr[0].name}, ${arr[1].name}`
+    return `${arr[0].name}, ${arr[1].name}, +${arr.length - 2} người khác`
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Quản lý Hội đồng Phỏng vấn</h2>
+        <Button className="gap-2" onClick={openCreate}>
+          <Plus className="h-4 w-4" />
+          Tạo Hội đồng mới
+        </Button>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tên Hội đồng</TableHead>
+                <TableHead>Thành viên</TableHead>
+                <TableHead>Vị trí áp dụng</TableHead>
+                <TableHead className="text-right">Hành động</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {councils.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">Chưa có hội đồng nào</TableCell>
+                </TableRow>
+              ) : (
+                councils.map(c => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell>{summarizeMembers(c.members as any)}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {c.positionIds.map(pid => {
+                          const p = positions.find(pp => pp.id === pid)
+                          return p ? (
+                            <Badge key={pid} variant="secondary">{p.name}</Badge>
+                          ) : null
+                        })}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(c.id)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Xoá hội đồng?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Hành động này không thể hoàn tác. "{c.name}" sẽ bị xoá.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Huỷ</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => { deleteCouncil(c.id); toast({ title: "Đã xoá hội đồng", description: c.name }) }}>Xoá</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Create/Edit Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{editingCouncilId ? "Chỉnh sửa Hội đồng" : "Tạo Hội đồng mới"}</DialogTitle>
+            <DialogDescription>Thiết lập tên, thành viên và vị trí áp dụng.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-2">
+            <div className="space-y-2">
+              <Label>Tên Hội đồng</Label>
+              <Input value={councilName} onChange={(e) => setCouncilName(e.target.value)} placeholder="VD: HĐPV Chuyên môn IT" />
+            </div>
+
+            <div className="space-y-3">
+              <Label>Thành viên Hội đồng</Label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <Input value={memberName} onChange={(e) => setMemberName(e.target.value)} placeholder="Tên thành viên" />
+                <Input value={memberEmail} onChange={(e) => setMemberEmail(e.target.value)} placeholder="Email thành viên" />
+                <Button type="button" onClick={addMember} className="gap-2"><Plus className="h-4 w-4" />Thêm</Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {members.map((m, idx) => (
+                  <div key={`${m.email}-${idx}`} className="flex items-center gap-2 px-2 py-1 border rounded-md">
+                    <span className="text-sm">{m.name} ({m.email})</span>
+                    <Button variant="ghost" size="icon" onClick={() => removeMember(idx)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Vị trí tuyển dụng liên quan</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-3 border rounded-md">
+                {positions.map(p => (
+                  <label key={p.id} className="flex items-center gap-2">
+                    <Checkbox checked={selectedPositionIds.includes(p.id)} onCheckedChange={(v) => togglePosition(p.id, Boolean(v))} />
+                    <span className="text-sm">{p.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Huỷ</Button>
+            <Button onClick={saveCouncil}>Lưu</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
 
 export default function ConfigPage() {
   const router = useRouter()
@@ -153,7 +373,7 @@ export default function ConfigPage() {
           {/* Content */}
           <div className="flex-1 overflow-auto p-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5 mb-4">
                 <TabsTrigger value="positions" className="gap-2">
                   <Users className="h-4 w-4" />
                   Vị trí tuyển dụng
@@ -169,6 +389,10 @@ export default function ConfigPage() {
                 <TabsTrigger value="ai" className="gap-2">
                   <Users className="h-4 w-4" />
                   Cấu hình AI Agent
+                </TabsTrigger>
+                <TabsTrigger value="councils" className="gap-2">
+                  <Users className="h-4 w-4" />
+                  Hội đồng Phỏng vấn
                 </TabsTrigger>
               </TabsList>
 
@@ -806,6 +1030,11 @@ export default function ConfigPage() {
                     </Card>
                   </div>
                 </div>
+              </TabsContent>
+
+              {/* Councils Tab */}
+              <TabsContent value="councils" className="space-y-6">
+                <CouncilsManager />
               </TabsContent>
             </Tabs>
           </div>

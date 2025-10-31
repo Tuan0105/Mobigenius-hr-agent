@@ -16,7 +16,7 @@ import { TableBody, TableCell, Table as TableComponent, TableHead, TableHeader, 
 import { toast } from "@/hooks/use-toast"
 import { useHRData } from "@/lib/data-store"
 import type { ExamBatch } from "@/lib/types"
-import { Calendar, CheckCircle, Download, Edit, FileText, MapPin, Monitor, Plus, Trash2, Upload, Users, XCircle } from "lucide-react"
+import { Calendar, CheckCircle, Download, Edit, Eye, FileText, MapPin, Monitor, Plus, Trash2, Upload, Users, XCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
@@ -326,6 +326,30 @@ export default function ExamBatchesPage() {
     setIsResultModalOpen(false)
   }
 
+  // Tải danh sách ứng viên (CSV)
+  const downloadExamCandidatesCsv = () => {
+    const headers = ["STT","Họ và tên","Email","Vị trí","Kết quả","Điểm","Ghi chú"]
+    const rows = examCandidates.map((c, idx) => [
+      idx + 1,
+      c.candidateName || "",
+      c.candidateEmail || "",
+      c.position || "",
+      c.examResult === "pass" ? "Đạt" : c.examResult === "fail" ? "Không đạt" : "",
+      c.examScore ?? "",
+      (c.notes || "").toString().replace(/"/g, '""')
+    ].map(val => `"${val}"`).join(","))
+    const csv = [headers.join(","), ...rows].join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", `ung_vien_dot_thi_${selectedBatch?.id || "all"}.csv`)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <ProtectedRoute allowedRoles={['hr']}>
       <div className="flex h-screen bg-background">
@@ -545,6 +569,7 @@ export default function ExamBatchesPage() {
         isOpen={isResultModalOpen}
         onClose={() => setIsResultModalOpen(false)}
         title={`Nhập kết quả thi - ${selectedBatch?.name}`}
+        className="max-w-7xl"
       >
         <div className="space-y-6">
           {/* Import Excel Section */}
@@ -593,45 +618,40 @@ export default function ExamBatchesPage() {
             </p>
           </div>
 
-          {/* Candidates List */}
-          <div>
-            <h3 className="font-medium mb-4">Danh sách ứng viên thi ({examCandidates.length} người)</h3>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {examCandidates.map((candidate) => (
-                <div key={candidate.candidateId} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                  <div className="space-y-3">
-                    {/* Candidate Info */}
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-base">{candidate.candidateName}</h4>
-                        <p className="text-sm text-muted-foreground">{candidate.candidateEmail}</p>
-                        <p className="text-sm text-muted-foreground">{candidate.position}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {candidate.examResult === "pass" ? (
-                          <CheckCircle className="h-5 w-5 text-green-600" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-red-600" />
-                        )}
-                        <span className={`text-sm font-medium ${
-                          candidate.examResult === "pass" ? "text-green-600" : "text-red-600"
-                        }`}>
-                          {candidate.examResult === "pass" ? "Đạt" : "Không đạt"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Controls */}
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                      <div>
-                        <Label htmlFor={`result-${candidate.candidateId}`} className="text-sm font-medium">Kết quả:</Label>
+          {/* Candidates Table for input results */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-base text-foreground">Danh sách ứng viên thi</h3>
+              <Badge variant="secondary" className="text-xs">{examCandidates.length} ứng viên</Badge>
+            </div>
+            <div className="border rounded-md overflow-auto">
+              <TableComponent>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Họ và tên</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Vị trí</TableHead>
+                    <TableHead>Kết quả</TableHead>
+                    <TableHead>Điểm</TableHead>
+                    <TableHead>Ghi chú</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {examCandidates.map((candidate, index) => (
+                    <TableRow key={candidate.candidateId}>
+                      <TableCell>{index + 1}</TableCell>
+                      <TableCell className="font-medium">{candidate.candidateName}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{candidate.candidateEmail}</TableCell>
+                      <TableCell>{candidate.position}</TableCell>
+                      <TableCell>
                         <Select
                           value={candidate.examResult || ""}
                           onValueChange={(value: "pass" | "fail") => 
                             handleUpdateCandidateResult(candidate.candidateId, value, candidate.examScore || 0)
                           }
                         >
-                          <SelectTrigger className="w-full mt-1">
+                          <SelectTrigger className="w-32 h-8">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -649,14 +669,12 @@ export default function ExamBatchesPage() {
                             </SelectItem>
                           </SelectContent>
                         </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor={`score-${candidate.candidateId}`} className="text-sm font-medium">Điểm:</Label>
+                      </TableCell>
+                      <TableCell>
                         <Input
-                          id={`score-${candidate.candidateId}`}
                           type="number"
-                          min="0"
-                          max="100"
+                          min={0}
+                          max={100}
                           value={candidate.examScore || ""}
                           onChange={(e) => 
                             handleUpdateCandidateResult(
@@ -665,13 +683,11 @@ export default function ExamBatchesPage() {
                               parseInt(e.target.value) || 0
                             )
                           }
-                          className="w-full mt-1"
+                          className="w-24 h-8"
                         />
-                      </div>
-                      <div>
-                        <Label htmlFor={`notes-${candidate.candidateId}`} className="text-sm font-medium">Ghi chú:</Label>
+                      </TableCell>
+                      <TableCell>
                         <Input
-                          id={`notes-${candidate.candidateId}`}
                           placeholder="Ghi chú..."
                           value={candidate.notes || ""}
                           onChange={(e) => {
@@ -681,27 +697,16 @@ export default function ExamBatchesPage() {
                                 : c
                             ))
                           }}
-                          className="w-full mt-1"
+                          className="h-8"
                         />
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium">Trạng thái:</Label>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className={`w-3 h-3 rounded-full ${
-                            candidate.examResult === "pass" ? "bg-green-500" : "bg-red-500"
-                          }`} />
-                          <span className="text-sm text-muted-foreground">
-                            {candidate.examResult === "pass" ? "Đã hoàn thành" : "Chưa đạt"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </TableComponent>
             </div>
           </div>
-
+         
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t sticky bottom-0 bg-background">
             <Button variant="outline" onClick={() => setIsResultModalOpen(false)}>
@@ -719,6 +724,7 @@ export default function ExamBatchesPage() {
         isOpen={isViewCandidatesOpen}
         onClose={() => setIsViewCandidatesOpen(false)}
         title="Danh sách ứng viên"
+        className="max-w-7xl"
       >
         <div className="space-y-4">
           {/* Batch Info - Compact */}
@@ -749,117 +755,68 @@ export default function ExamBatchesPage() {
             </div>
           </div>
 
-          {/* Candidates List Section */}
+          {/* Candidates Table */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-base text-foreground">Danh sách ứng viên</h3>
-              <Badge variant="secondary" className="text-xs">
-                {examCandidates.length} ứng viên
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs">{examCandidates.length} ứng viên</Badge>
+                <Button variant="outline" size="sm" className="gap-1" onClick={downloadExamCandidatesCsv}>
+                  <Download className="h-4 w-4" />
+                  Tải Excel
+                </Button>
+              </div>
             </div>
-            
-            {examCandidates.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-12 h-12 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Users className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <h4 className="font-medium text-foreground mb-1">Chưa có ứng viên</h4>
-                <p className="text-sm text-muted-foreground">Chưa có ứng viên nào được gán vào đợt thi này</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto pr-2">
-                {examCandidates.map((candidate, index) => (
-                  <div key={candidate.candidateId} className="group relative bg-card border border-border rounded-lg p-3 hover:shadow-md hover:border-primary/20 transition-all duration-200">
-                    {/* Header with candidate info - Compact */}
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center text-xs font-bold text-primary">
-                          {index + 1}
+            <div className="border rounded-md overflow-hidden">
+              <TableComponent>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Họ và tên</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Vị trí</TableHead>
+                    <TableHead>Kết quả</TableHead>
+                    <TableHead>Điểm</TableHead>
+                    <TableHead>Ghi chú</TableHead>
+                    <TableHead className="w-12"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {examCandidates.map((candidate, index) => (
+                    <TableRow key={candidate.candidateId}>
+                      <TableCell>{index + 1}</TableCell>
+                      <TableCell>
+                        <div 
+                          className="font-medium hover:text-primary truncate"
+                          onClick={() => handleCandidateClick(candidate)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {candidate.candidateName}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 
-                            className="font-semibold text-sm text-foreground mb-1 cursor-pointer hover:text-primary transition-colors truncate"
-                            onClick={() => handleCandidateClick(candidate)}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            {candidate.candidateName}
-                          </h4>
-                          <p className="text-xs text-muted-foreground truncate">{candidate.candidateEmail}</p>
-                          <p className="text-xs text-primary font-medium truncate">{candidate.position}</p>
-                        </div>
-                      </div>
-                      
-                      {/* Result status - Compact */}
-                      <div className="flex items-center gap-1">
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground truncate">{candidate.candidateEmail}</TableCell>
+                      <TableCell>{candidate.position}</TableCell>
+                      <TableCell>
                         {candidate.examResult ? (
-                          <div className="flex items-center gap-1">
-                            {candidate.examResult === 'pass' ? (
-                              <CheckCircle className="h-3 w-3 text-green-600" />
-                            ) : (
-                              <XCircle className="h-3 w-3 text-red-600" />
-                            )}
-                            <Badge className={`text-xs font-medium ${
-                              candidate.examResult === 'pass' 
-                                ? 'bg-green-100 text-green-800 border-green-200' 
-                                : 'bg-red-100 text-red-800 border-red-200'
-                            }`}>
-                              {candidate.examResult === 'pass' ? 'Đạt' : 'Không đạt'}
-                            </Badge>
-                          </div>
-                        ) : (
-                          <Badge variant="outline" className="text-xs text-muted-foreground border-muted-foreground/30">
-                            Chưa có kết quả
+                          <Badge className={`text-xs ${candidate.examResult === 'pass' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {candidate.examResult === 'pass' ? 'Đạt' : 'Không đạt'}
                           </Badge>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Details grid - Compact */}
-                    <div className="grid grid-cols-1 gap-1 text-xs">
-                      <div className="flex justify-between">
-                        <span className="font-medium text-foreground">Ngày gán:</span>
-                        <span className="text-muted-foreground">
-                          {new Date(candidate.assignedAt).toLocaleDateString('vi-VN')}
-                        </span>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <div className="flex justify-between">
-                          <span className="font-medium text-foreground">Điểm số:</span>
-                          <span className="text-sm font-medium text-foreground">
-                            {candidate.examScore ? `${candidate.examScore}/100` : '0/0'}
-                          </span>
-                        </div>
-                        {candidate.examScore ? (
-                          <div className="flex-1 bg-muted/50 rounded-full h-1">
-                            <div 
-                              className="bg-primary h-1 rounded-full transition-all duration-300"
-                              style={{ width: `${candidate.examScore}%` }}
-                            />
-                          </div>
                         ) : (
-                          <div className="flex-1 bg-muted/50 rounded-full h-1">
-                            <div className="bg-muted h-1 rounded-full" />
-                          </div>
+                          <Badge variant="outline" className="text-xs text-muted-foreground">Chưa có</Badge>
                         )}
-                      </div>
-                      
-                      {candidate.notes && (
-                        <div className="space-y-1">
-                          <span className="font-medium text-foreground">Ghi chú:</span>
-                          <p className="text-muted-foreground bg-muted/30 rounded p-1.5 text-xs line-clamp-1">
-                            {candidate.notes}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Hover effect border */}
-                    <div className="absolute inset-0 rounded-lg border-2 border-primary/0 group-hover:border-primary/20 transition-colors duration-200 pointer-events-none" />
-                  </div>
-                ))}
-              </div>
-            )}
+                      </TableCell>
+                      <TableCell>{candidate.examScore ?? '-'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground truncate max-w-[240px]">{candidate.notes || '-'}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => handleCandidateClick(candidate)} aria-label="Xem">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </TableComponent>
+            </div>
           </div>
         </div>
       </SidePanel>

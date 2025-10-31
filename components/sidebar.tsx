@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
 import { Brain, Calendar, LogOut, Settings, Users } from "lucide-react"
+import { BarChart3 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 
 interface SidebarProps {
@@ -58,6 +59,40 @@ export function Sidebar({ className }: SidebarProps) {
           >
             <Calendar className="mr-2 h-4 w-4" />
             Quản lý Đợt thi
+          </Button>
+        </div>
+
+        {/* Interviews Management */}
+        <div className="space-y-1">
+          <Button
+            variant="ghost"
+            className={cn(
+              "w-full justify-start",
+              pathname === "/interviews"
+                ? "text-sidebar-primary bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            )}
+            onClick={() => router.push("/interviews")}
+          >
+            <Calendar className="mr-2 h-4 w-4" />
+            Quản lý Phỏng vấn
+          </Button>
+        </div>
+
+        {/* Reports */}
+        <div className="space-y-1">
+          <Button
+            variant="ghost"
+            className={cn(
+              "w-full justify-start",
+              pathname === "/reports"
+                ? "text-sidebar-primary bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            )}
+            onClick={() => router.push("/reports")}
+          >
+            <BarChart3 className="mr-2 h-4 w-4" />
+            Thống kê Tuyển dụng
           </Button>
         </div>
 

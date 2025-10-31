@@ -763,6 +763,15 @@ export function useHRData() {
     ))
   }, [])
 
+  // Assign or clear interview council for candidate
+  const updateCandidateCouncil = useCallback((candidateId: number, interviewCouncilId: number | undefined) => {
+    setCandidates(prev => prev.map(candidate => 
+      candidate.id === candidateId 
+        ? { ...candidate, interviewCouncilId, updatedAt: new Date().toISOString() }
+        : candidate
+    ))
+  }, [])
+
   // Update candidate status
   const updateCandidateStatus = useCallback((candidateId: number, status: string) => {
     setCandidates(prev => prev.map(candidate => 
@@ -1269,6 +1278,7 @@ export function useHRData() {
     updateCandidateExamBatch,
     updateCandidateExamScore,
     updateCandidateNotes,
+    updateCandidateCouncil,
     updateCandidateStatus,
     updateCandidateEmailStatus,
     updateCandidateBPCMReviews,

@@ -32,6 +32,20 @@ export interface EmailTemplate {
   updatedAt: string
 }
 
+export interface InterviewCouncilMember {
+  name: string
+  email: string
+}
+
+export interface InterviewCouncil {
+  id: number
+  name: string
+  members: InterviewCouncilMember[]
+  positionIds: number[]
+  createdAt: string
+  updatedAt: string
+}
+
 // Shared positions list
 export const POSITION_NAMES = [
   "ATTT",
@@ -332,6 +346,47 @@ Mọi thắc mắc liên hệ: 0906.073.906`,
   },
 ]
 
+const initialCouncils: InterviewCouncil[] = [
+  {
+    id: 10001,
+    name: "HĐPV Chuyên môn IT",
+    members: [
+      { name: "Trần Văn B", email: "tranvb@mobifone.vn" },
+      { name: "Lê Thị C", email: "letc@mobifone.vn" },
+      { name: "Nguyễn Văn D", email: "nguyenvd@mobifone.vn" },
+    ],
+    // DEV (2), UI/UX (4), AI Engineer (6)
+    positionIds: [2, 4, 6],
+    createdAt: "2025-09-01T00:00:00Z",
+    updatedAt: "2025-09-29T00:00:00Z",
+  },
+  {
+    id: 10002,
+    name: "HĐPV Ban Lãnh đạo",
+    members: [
+      { name: "Phạm Tổng", email: "pham.tong@mobifone.vn" },
+      { name: "Vũ Giám đốc", email: "vu.gd@mobifone.vn" },
+    ],
+    // ATTT (1), DEV (2), PO (5)
+    positionIds: [1, 2, 5],
+    createdAt: "2025-09-01T00:00:00Z",
+    updatedAt: "2025-09-29T00:00:00Z",
+  },
+  {
+    id: 10003,
+    name: "HĐPV Kỹ thuật Viễn thông",
+    members: [
+      { name: "Đỗ Kỹ thuật", email: "do.kt@mobifone.vn" },
+      { name: "Bùi Hạ tầng", email: "bui.ht@mobifone.vn" },
+      { name: "Hoàng Vận hành", email: "hoang.vh@mobifone.vn" },
+    ],
+    // Vận hành, khai thác (8), Data Engineer (10)
+    positionIds: [8, 10],
+    createdAt: "2025-09-01T00:00:00Z",
+    updatedAt: "2025-09-29T00:00:00Z",
+  },
+]
+
 export function useConfigData() {
   const [positions, setPositions] = useState<Position[]>(initialPositions)
   const [criteria, setCriteria] = useState<ScreeningCriteria[]>(initialCriteria)
@@ -344,6 +399,8 @@ export function useConfigData() {
   const [aiKnowledgeFiles, setAiKnowledgeFiles] = useState<Array<{ id: number; name: string; uploadedAt: string }>>([
     { id: 1, name: "Quy_che_tuyen_dung_2025.pdf", uploadedAt: new Date().toISOString() },
   ])
+  // Councils
+  const [councils, setCouncils] = useState<InterviewCouncil[]>(initialCouncils)
 
   // Position management
   const addPosition = useCallback((positionData: Omit<Position, "id" | "applications" | "createdAt" | "updatedAt">) => {
@@ -426,6 +483,31 @@ export function useConfigData() {
     )
   }, [])
 
+  // Councils management
+  const addCouncil = useCallback((councilData: Omit<InterviewCouncil, "id" | "createdAt" | "updatedAt">) => {
+    const newCouncil: InterviewCouncil = {
+      ...councilData,
+      id: Date.now(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    setCouncils((prev) => [...prev, newCouncil])
+  }, [])
+
+  const updateCouncil = useCallback((id: number, updates: Partial<InterviewCouncil>) => {
+    setCouncils((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c)),
+    )
+  }, [])
+
+  const deleteCouncil = useCallback((id: number) => {
+    setCouncils((prev) => prev.filter((c) => c.id !== id))
+  }, [])
+
+  const getCouncilsByPosition = useCallback((positionId: number) => {
+    return councils.filter((c) => c.positionIds.includes(positionId))
+  }, [councils])
+
   // AI config management
   const updateAiPrompt = useCallback((prompt: string) => {
     setAiPrompt(prompt)
@@ -452,6 +534,7 @@ export function useConfigData() {
     isLoading,
     aiPrompt,
     aiKnowledgeFiles,
+    councils,
 
     // Position methods
     addPosition,
@@ -469,6 +552,12 @@ export function useConfigData() {
     getTemplateByType,
     addEmailTemplate,
     updateEmailTemplate,
+
+    // Council methods
+    addCouncil,
+    updateCouncil,
+    deleteCouncil,
+    getCouncilsByPosition,
 
     // AI config methods
     updateAiPrompt,

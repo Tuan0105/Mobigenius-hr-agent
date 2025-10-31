@@ -7,6 +7,7 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { Sidebar } from "@/components/sidebar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -24,7 +25,7 @@ import { closestCenter, DndContext, type DragEndEvent, DragOverlay, type DragSta
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { Bell, Check, Cloud, Download, Eye, FileText, Loader2, Mail, MoreHorizontal, Search, Users, XCircle } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 
 const stages = [
@@ -79,8 +80,6 @@ function SortableCandidateCard({ candidate, onClick }: SortableCandidateCardProp
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "suitable":
-        return "Phù hợp"
       case "suitable-form1":
         return "Phù hợp (H1)"
       case "suitable-form2":
@@ -295,8 +294,6 @@ function CandidateCard({ candidate, onClick }: { candidate: Candidate; onClick: 
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "suitable":
-        return "Phù hợp"
       case "suitable-form1":
         return "Phù hợp (H1)"
       case "suitable-form2":
@@ -382,6 +379,7 @@ export default function HRAgentPage() {
     return "suitable-form1" // Hình thức 1 - Tới phỏng vấn ngay
   }
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { getTemplateByType } = useConfigData()
   const {
     candidates,
@@ -447,6 +445,18 @@ export default function HRAgentPage() {
   const [bulkEmailContent, setBulkEmailContent] = useState<string>("")
   // Track which stage the email is intended for (when stage changes right before opening modal)
   const [emailStageOverride, setEmailStageOverride] = useState<string | null>(null)
+
+  // Open candidate detail by query param (?candidateId=123)
+  useEffect(() => {
+    const cid = searchParams?.get("candidateId")
+    if (cid) {
+      const c = candidates.find(x => x.id === Number(cid))
+      if (c) {
+        setSelectedCandidate(c)
+        setIsModalOpen(true)
+      }
+    }
+  }, [searchParams, candidates])
   
   // Map template type to human-readable action label for toasts and menus
   const templateTypeToLabel = useCallback((templateType: string): string => {
@@ -507,6 +517,9 @@ export default function HRAgentPage() {
   const [itemsPerPage] = useState(10)
   const [sortField, setSortField] = useState<keyof Candidate>("updatedAt")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
+  // Date range filter (schedule date if exists, otherwise application date)
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({})
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false)
 
   // Function to download all candidates as Excel
   const handleDownloadAll = () => {
@@ -1089,26 +1102,37 @@ export default function HRAgentPage() {
 
   const activeDragCandidate = activeId ? candidates.find((c: Candidate) => c.id.toString() === activeId) : null
 
+  // Helper: extract Date from schedule string like "PV V1: 25/11/2024" or "Thi: 30/10/2024"
+  const extractDateFromSchedule = (schedule?: string): Date | null => {
+    if (!schedule) return null
+    const dateMatch = schedule.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+    if (dateMatch) {
+      const [, day, month, year] = dateMatch
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+    }
+    return null
+  }
+
+  // Apply date filter to base candidates
+  const dateFilteredCandidates = candidates.filter((c) => {
+    if (!dateRange.from && !dateRange.to) return true
+    const scheduleDate = extractDateFromSchedule(c.schedule)
+    const fallbackDate = new Date(c.updatedAt)
+    const target = scheduleDate || fallbackDate
+    if (dateRange.from && target < new Date(dateRange.from.setHours(0,0,0,0))) return false
+    if (dateRange.to && target > new Date(dateRange.to.setHours(23,59,59,999))) return false
+    return true
+  })
+
   // Table view data processing
-  const sortedCandidates = [...candidates].sort((a, b) => {
+  const sortedCandidates = [...dateFilteredCandidates].sort((a, b) => {
     let aValue = a[sortField]
     let bValue = b[sortField]
     
     // Special handling for schedule field - extract date for sorting
     if (sortField === "schedule") {
-      const extractDate = (schedule: string | undefined): Date | null => {
-        if (!schedule) return null
-        // Extract date from formats like "PV V1: 25/11/2024", "Thi: 30/10/2024"
-        const dateMatch = schedule.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
-        if (dateMatch) {
-          const [, day, month, year] = dateMatch
-          return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
-        }
-        return null
-      }
-      
-      const aDate = extractDate(aValue as string)
-      const bDate = extractDate(bValue as string)
+      const aDate = extractDateFromSchedule(aValue as string)
+      const bDate = extractDateFromSchedule(bValue as string)
       
       if (!aDate && !bDate) return 0
       if (!aDate) return 1
@@ -1290,6 +1314,11 @@ export default function HRAgentPage() {
     setFilters(prev => ({ ...prev, examBatch: value }))
   }, [])
 
+  // Thêm handler nguồn hồ sơ
+  const handleSourceFilter = useCallback((value: string) => {
+    setFilters(prev => ({ ...prev, source: value }))
+  }, [])
+
   // Handler functions to prevent infinite loops
   const handleViewModeKanban = useCallback(() => {
     setViewMode("kanban")
@@ -1380,8 +1409,7 @@ export default function HRAgentPage() {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "suitable":
-        return "Phù hợp"
+
       case "suitable-form1":
         return "Phù hợp (H1)"
       case "suitable-form2":
@@ -1712,14 +1740,15 @@ export default function HRAgentPage() {
                   </div>
                 )}
 
-                <Button 
+                {/* Nút tải tất cả CV đã được di chuyển xuống trên bảng bên phải */}
+                {/* <Button 
                   variant="outline" 
                   className="gap-2 bg-transparent hover:bg-accent"
                   onClick={handleDownloadAll}
                 >
                   <Download className="h-4 w-4" />
-                  Tải tất cả
-                </Button>
+                  Tải tất cả CV
+                </Button> */}
                 {/* Notifications */}
                 <Popover open={notificationPopoverOpen} onOpenChange={setNotificationPopoverOpen}>
                   <PopoverTrigger asChild>
@@ -1801,7 +1830,9 @@ export default function HRAgentPage() {
 
           {/* Filter Bar */}
           <div className="border-b border-border bg-card px-6 py-4">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap gap-4 items-end">
+              {/* Các filter select ở đây như cũ   */}
+              {/* ... */}
               <div className="flex flex-col gap-1">
                 <label className="text-sm font-medium text-muted-foreground">Vị trí tuyển dụng</label>
                 <Select value={filters.position} onValueChange={handlePositionFilter}>
@@ -1815,6 +1846,102 @@ export default function HRAgentPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Bộ lọc nguồn hồ sơ */}
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-muted-foreground">Nguồn hồ sơ</label>
+                <Select value={(filters as any).source || "all"} onValueChange={handleSourceFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Chọn nguồn" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    {Array.from(new Set(candidates.map(c => c.nguonHoSo).filter(Boolean))).map((src: any) => (
+                      <SelectItem key={src} value={src}>{src}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Thời gian - đặt giữa Nguồn hồ sơ và Trạng thái */}
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-muted-foreground">Thời gian</label>
+                <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
+                  <PopoverTrigger>
+                    <Button
+                      variant="outline"
+                      className="w-64 justify-start text-left font-normal"
+                      type="button"
+                      onClick={() => setDatePopoverOpen(true)}
+                    >
+                      {dateRange.from || dateRange.to ? (
+                        <span>
+                          {dateRange.from ? new Date(dateRange.from).toLocaleDateString('vi-VN') : ''}
+                          {' '} - {' '}
+                          {dateRange.to ? new Date(dateRange.to).toLocaleDateString('vi-VN') : ''}
+                        </span>
+                      ) : (
+                        <span>Chọn khoảng ngày</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent forceMount className="w-auto p-0" align="start" side="bottom">
+                    <div className="p-2 border-b flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        type="button"
+                        onClick={() => {
+                          const today = new Date()
+                          setDateRange({ from: today, to: today })
+                          setDatePopoverOpen(false)
+                        }}
+                      >Hôm nay</Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        type="button"
+                        onClick={() => {
+                          const end = new Date()
+                          const start = new Date()
+                          start.setDate(end.getDate() - 6)
+                          setDateRange({ from: start, to: end })
+                          setDatePopoverOpen(false)
+                        }}
+                      >7 ngày qua</Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        type="button"
+                        onClick={() => {
+                          const now = new Date()
+                          const start = new Date(now.getFullYear(), now.getMonth(), 1)
+                          const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+                          setDateRange({ from: start, to: end })
+                          setDatePopoverOpen(false)
+                        }}
+                      >Tháng này</Button>
+                    </div>
+                    <CalendarComponent
+                      mode="range"
+                      numberOfMonths={1}
+                      captionLayout="dropdown"
+                      selected={dateRange as any}
+                      onSelect={(range: any) => {
+                        setDateRange(range || {})
+                        if (range?.from && range?.to) {
+                          setDatePopoverOpen(false)
+                        }
+                      }}
+                      initialFocus
+                    />
+                    <div className="flex items-center justify-between gap-2 p-2 border-t">
+                      <Button variant="ghost" size="sm" type="button" onClick={() => { setDateRange({}); }}>Xóa</Button>
+                      <Button size="sm" type="button" onClick={() => setDatePopoverOpen(false)}>Đóng</Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="flex flex-col gap-1">
@@ -1871,19 +1998,31 @@ export default function HRAgentPage() {
                 </Select>
               </div>
 
-              <div className="flex flex-col gap-1 flex-1 max-w-sm">
-                <label className="text-sm font-medium text-muted-foreground">Tìm kiếm</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Tìm kiếm ứng viên theo tên, email, kỹ năng..."
-                    value={filters.search}
-                    onChange={(e) => {
-                      // Real-time search với debounce
-                      setFilters({ ...filters, search: e.target.value })
-                    }}
-                    className="pl-9"
-                  />
+              <div className="w-full flex items-end gap-2 mt-4">
+                <div className="flex flex-col gap-1 flex-1 max-w-sm">
+                  <label className="text-sm font-medium text-muted-foreground">Tìm kiếm</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Tìm kiếm ứng viên theo tên, email, kỹ năng..."
+                      value={filters.search}
+                      onChange={(e) => {
+                        setFilters({ ...filters, search: e.target.value })
+                      }}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+                {/* Nút xuất CV đặt ngang hàng với tìm kiếm/thời gian */}
+                <div className="ml-auto self-end">
+                  <Button 
+                    variant="outline" 
+                    className="gap-2 bg-transparent hover:bg-accent"
+                    onClick={handleDownloadAll}
+                  >
+                    <Download className="h-4 w-4" />
+                    Xuất CV
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1945,6 +2084,7 @@ export default function HRAgentPage() {
               /* Table View */
               <div className="h-full flex flex-col">
                 <div className="flex-1 overflow-auto">
+                 
                   <div className="relative">
                     <TableComponent>
                       <TableHeader className="sticky top-0 bg-background z-20 border-b shadow-sm">
@@ -1999,7 +2139,12 @@ export default function HRAgentPage() {
                             </div>
                             <div className="text-sm text-muted-foreground">{candidate.email}</div>
                           </TableCell>
-                          <TableCell>{candidate.viTri}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span>{candidate.viTri}</span>
+                              <span className="text-xs text-muted-foreground">Nguồn: {candidate.nguonHoSo || "-"}</span>
+                            </div>
+                          </TableCell>
                           <TableCell>
                             {new Date(candidate.updatedAt).toLocaleDateString('vi-VN')}
                           </TableCell>

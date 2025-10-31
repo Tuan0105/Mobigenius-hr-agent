@@ -11,15 +11,15 @@ import type { Candidate } from "@/lib/types"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
 import {
-    Award,
-    Briefcase,
-    CheckCircle,
-    Download, FileSpreadsheet, GraduationCap,
-    Mail,
-    Phone,
-    UserCheck,
-    UserX,
-    XCircle
+  Award,
+  Briefcase,
+  CheckCircle,
+  Download, FileSpreadsheet, GraduationCap,
+  Mail,
+  Phone,
+  UserCheck,
+  UserX,
+  XCircle
 } from "lucide-react"
 import { useEffect, useState } from "react"
 

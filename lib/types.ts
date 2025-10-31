@@ -33,6 +33,8 @@ export interface Candidate {
   emailSent: boolean
   lastEmailSent?: string
   emailStatusByStage?: Record<string, { sent: boolean; lastSent?: string }>
+  // Interview council assignment
+  interviewCouncilId?: number
   createdAt: string
   updatedAt: string
   activities: Activity[]
